@@ -1,0 +1,13 @@
+# config / context / audit — copy-paste cheatsheet
+
+runtime bootstrap
+runtime context show
+runtime context use <name>
+runtime audit tail -n 20
+
+# Point the runtime at config/policy outside the Runtime Home (CI/CD)
+export RUNTIME_CONFIG_FILE=/path/to/config.yaml
+export RUNTIME_POLICY_FILE=/path/to/policy-config.yaml
+
+# Point the runtime at a different Runtime Home entirely (local testing)
+export ENGINEERING_RUNTIME_HOME=/tmp/runtime-home

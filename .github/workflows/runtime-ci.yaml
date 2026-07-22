@@ -1,0 +1,101 @@
+name: Runtime CI
+
+# Installs the latest Engineering Runtime binary release from
+# kishore-gutta/engineering-runtime-releases (source code is never published
+# there, only build artifacts — see ../../../engineering-runtime/docs/05-development/release-process.md),
+# then exercises it against this repo's own runtime-commands/ setup:
+#   1. runtime config validate        (config_commands.txt)
+#   2. runtime auth status/login/logout github (auth_commands.txt)
+#   3. runtime github ... convenience commands  (github_commands.txt)
+# Config/policy come from this repo's runtime-commands/config.yaml and
+# policy-config.yaml via RUNTIME_CONFIG_FILE / RUNTIME_POLICY_FILE, per
+# ../../../engineering-runtime/README.md's "Config & Policy overrides"
+# section for CI/CD — this repo's own copies are never mutated by the run.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+env:
+  RUNTIME_RELEASES_REPO: kishore-gutta/engineering-runtime-releases
+  RUNTIME_CONFIG_FILE: ${{ github.workspace }}/runtime-commands/config.yaml
+  RUNTIME_POLICY_FILE: ${{ github.workspace }}/runtime-commands/policy-config.yaml
+  ENGINEERING_RUNTIME_HOME: ${{ github.workspace }}/.runtime-home
+
+jobs:
+  runtime-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Engineering Runtime (latest release)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          mkdir -p runtime-install
+          cd runtime-install
+
+          gh release download \
+            --repo "${RUNTIME_RELEASES_REPO}" \
+            --pattern "*-linux-amd64.tar.gz" \
+            --pattern "SHA256SUMS.txt" \
+            --clobber
+
+          ARCHIVE="$(ls engineering-runtime-*-linux-amd64.tar.gz)"
+          echo "Resolved latest release archive: ${ARCHIVE}"
+
+          sha256sum -c <(grep "${ARCHIVE}" SHA256SUMS.txt)
+
+          tar -xzf "${ARCHIVE}"
+          PKG_DIR="$(basename "${ARCHIVE}" .tar.gz)"
+          echo "${PWD}/${PKG_DIR}" >> "${GITHUB_PATH}"
+
+      - name: Verify install
+        run: runtime version
+
+      - name: Bootstrap Runtime Home
+        run: runtime bootstrap
+
+      - name: Config diagnostics (runtime config validate)
+        run: runtime config validate
+
+      - name: Validate sample capabilities
+        run: |
+          runtime capability validate examples/capabilities/notes-roundtrip.md
+          runtime capability validate examples/capabilities/github-repositories.md
+
+      - name: Auth status (unaudited health check)
+        env:
+          RUNTIME_GITHUB_TOKEN: ${{ secrets.RUNTIME_GITHUB_TOKEN }}
+        run: runtime auth status
+
+      - name: Auth login github
+        env:
+          RUNTIME_GITHUB_TOKEN: ${{ secrets.RUNTIME_GITHUB_TOKEN }}
+        run: runtime auth login github
+
+      - name: Run github Runtime Commands
+        env:
+          RUNTIME_GITHUB_TOKEN: ${{ secrets.RUNTIME_GITHUB_TOKEN }}
+        run: |
+          runtime github user get
+          runtime github organizations list
+          runtime github notifications list
+
+      - name: Auth logout github
+        if: always()
+        env:
+          RUNTIME_GITHUB_TOKEN: ${{ secrets.RUNTIME_GITHUB_TOKEN }}
+        run: runtime auth logout github
+
+      - name: Show audit trail
+        if: always()
+        run: runtime audit tail -n 50

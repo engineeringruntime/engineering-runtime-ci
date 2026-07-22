@@ -1,0 +1,36 @@
+# Sample authentication config — copy to ~/.engineering-runtime/config.yaml
+# (or let `runtime bootstrap` seed it for you) and adjust which providers
+# are enabled. Update this file whenever config.Authentication's schema
+# changes (internal/config/config.go).
+runtime:
+  name: engineering-runtime
+  log_level: info
+
+authentication:
+  provider: github
+
+  github:
+    enabled: true
+    base_url: https://api.github.com
+    token_env: RUNTIME_GITHUB_TOKEN
+
+  gcp:
+    enabled: false
+    binary: gcloud
+
+  kubernetes:
+    enabled: false
+    kubeconfig_path: ""
+
+  openshift:
+    enabled: false
+    binary: oc
+    server: ""
+
+# `runtime command run <binary>` auth resolution — unmapped binaries skip
+# the Auth Engine (assumed to manage their own credentials).
+command_providers:
+  gh: github
+  gcloud: gcp
+  kubectl: kubernetes
+  oc: openshift

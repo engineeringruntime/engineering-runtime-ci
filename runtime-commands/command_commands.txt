@@ -1,0 +1,34 @@
+# runtime command run <binary> [args...] — copy-paste cheatsheet
+#
+# Every entry below is a generic CLI pass-through (Command Engine). None of
+# these are Runtime Commands (internal/commands) — they're gated entirely by
+# policy-config.yaml's allowed_binaries + command_policy, and authenticated
+# (if at all) via config.yaml's command_providers map. Runtime Context
+# injects --project (gcloud) / -n <namespace> (kubectl, oc) automatically —
+# see `runtime context show`.
+
+# GitHub CLI (command_providers: github)
+runtime command run gh repo list --limit 10
+runtime command run gh pr list
+
+# Terraform (unmapped in command_providers — auth is its own provider creds)
+runtime command run terraform init
+runtime command run terraform plan
+runtime command run terraform validate
+runtime command run terraform destroy   # denied by default command_policy
+
+# Google Cloud (command_providers: gcp)
+runtime command run gcloud projects list
+runtime command run gcloud storage ls
+runtime command run gcloud projects delete <id>   # denied by default command_policy
+
+# Kubernetes (command_providers: kubernetes)
+runtime command run kubectl get pods
+runtime command run kubectl get deployments
+
+# OpenShift (command_providers: openshift)
+runtime command run oc whoami
+runtime command run oc get pods
+
+# Anything not in allowed_binaries is denied outright:
+runtime command run python3 --version   # denied: not in allowed_binaries

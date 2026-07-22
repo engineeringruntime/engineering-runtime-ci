@@ -1,0 +1,26 @@
+# Auth Engine — copy-paste cheatsheet
+
+# Check every enabled provider at once (unaudited health check)
+runtime auth status
+
+# Login -> Execute -> Logout: explicit, audited, one provider at a time
+
+# GitHub (REST provider) — export the token, then log in
+export RUNTIME_GITHUB_TOKEN=ghp_your_personal_access_token
+runtime auth login github
+runtime auth logout github   # no session to clear; prints guidance
+
+# GCP (CLI provider) — enable in config.yaml, log in with gcloud itself
+gcloud auth application-default login
+runtime auth login gcp
+runtime auth logout gcp      # revokes ADC via `gcloud auth application-default revoke`
+
+# Kubernetes (CLI provider) — no login step; just point kubectl at a context
+kubectl config use-context <name>
+runtime auth login kubernetes
+runtime auth logout kubernetes   # no session to clear; prints guidance
+
+# OpenShift (CLI provider) — log in with oc itself
+oc login --token=<token> --server=<server>
+runtime auth login openshift
+runtime auth logout openshift    # ends the session via `oc logout`
