@@ -148,10 +148,11 @@ ENGINEERING_RUNTIME_CONSUMER: ci
    execute in-repo sample capabilities by **full path** instead.
 5. Capabilities are resolved from **wherever the company stores them**
    (GitHub repo, Capability Registry, shared disk — see §F). After
-   bootstrap, set `RUNTIME_CAPABILITIES_DIR` to that store's capabilities
-   tree and execute **by name**. Today's CI stand-in clones
-   `kishore-gutta/engineering-runtime-capabilities` —
-   `.github/workflows/capabilities-from-registry.yaml`.
+   bootstrap, clone/fetch the **entire** store, set
+   `RUNTIME_CAPABILITIES_DIR` to its `capabilities/` tree, then validate
+   (and optionally execute) **by name**. Today's CI stand-in:
+   `.github/workflows/capabilities-from-registry.yaml` (clone all → set
+   env → validate all → optional single execute).
 
 Upgrade / backward-compat drill:
 
