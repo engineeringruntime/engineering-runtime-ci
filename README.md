@@ -49,6 +49,7 @@ Shared install: [`.github/actions/setup-runtime`](.github/actions/setup-runtime)
 | [`runtime-ci.yaml`](.github/workflows/runtime-ci.yaml) | push/PR/dispatch | Install → bootstrap home → `config validate` → validate sample caps → `files/notes-roundtrip` → `auth` → `github user get` / `org list` / `notification list` → audit |
 | [`capabilities-from-registry.yaml`](.github/workflows/capabilities-from-registry.yaml) | weekly + dispatch | Install → bootstrap home → **clone entire** capabilities repo → set `RUNTIME_CAPABILITIES_DIR` → **validate all** capabilities → optionally execute one by name |
 | [`scaffold-service-docs-push.yaml`](.github/workflows/scaffold-service-docs-push.yaml) | dispatch | Clone capabilities store → run `files/scaffold-service-docs` into a folder → commit/push to target repo (default `kishore-gutta/my-repo`) |
+| [`java-service-scaffold-and-ship.yaml`](.github/workflows/java-service-scaffold-and-ship.yaml) | dispatch | **Replay demo:** clone **latest** Capability Registry (`engineering-runtime-capabilities@main`) → `RUNTIME_CAPABILITIES_DIR` → create fresh repo → execute `github/java-service-scaffold-and-ship` by name (runtime only, no AI) |
 | [`github-repo-health.yaml`](.github/workflows/github-repo-health.yaml) | weekly + dispatch | `github/github-repo-health` |
 | [`github-org-health.yaml`](.github/workflows/github-org-health.yaml) | weekly + dispatch | `github/github-org-health-check` |
 | [`github-security-posture.yaml`](.github/workflows/github-security-posture.yaml) | weekly + dispatch | `github/github-security-posture` |
@@ -62,8 +63,9 @@ Shared install: [`.github/actions/setup-runtime`](.github/actions/setup-runtime)
 | [`github-ci-failure-triage.yaml`](.github/workflows/github-ci-failure-triage.yaml) | dispatch | `github/github-ci-failure-triage` (`run_id`) |
 
 Destructive packs (service onboarding, release cut) are **not** wired as
-CI workflows — run those locally from
-`../engineering-runtime/capabilities/github/`.
+scheduled CI — run those locally, or use the dispatch-only
+[`java-service-scaffold-and-ship.yaml`](.github/workflows/java-service-scaffold-and-ship.yaml)
+demo (creates a fresh repo each run).
 
 ## Local dry-run / upgrade check
 

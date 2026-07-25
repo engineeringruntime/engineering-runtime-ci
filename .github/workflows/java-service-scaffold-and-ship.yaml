@@ -1,0 +1,232 @@
+name: Java service scaffold → ship → dispatch CI
+
+# Demo thesis:
+#   AI authors a capability once into the company Capability Registry
+#   (today: kishore-gutta/engineering-runtime-capabilities). CI re-runs
+#   the *latest* published copy via `runtime capability execute` — no
+#   LLM in the loop, so no AI cost. Samples never vendors this capability.
+#
+# Registry path (same seam as capabilities-from-registry.yaml):
+#   1. Install runtime + bootstrap runtime-home/ (binary owns config/policy)
+#   2. Clone the FULL Capability Registry repo at latest ref (default: main tip)
+#   3. Set RUNTIME_CAPABILITIES_DIR → <clone>/capabilities
+#   4. Resolve + execute by name: github/java-service-scaffold-and-ship
+#   5. Create a fresh empty GitHub repo (capability is not idempotent)
+#   6. Configure git identity + token credentials (Command Engine does not
+#      inject RUNTIME_GITHUB_TOKEN into bare `git`; see capability docs)
+#   7. Audit trail proves every step went through the runtime
+#
+# Capability (registry):
+#   https://github.com/kishore-gutta/engineering-runtime-capabilities/blob/main/capabilities/github/java-service-scaffold-and-ship.md
+#
+# Dispatch-only on purpose (creates a real repo + pushes + triggers Actions).
+
+on:
+  workflow_dispatch:
+    inputs:
+      repo_name:
+        description: >
+          Fresh empty repo name under the token owner. Leave empty to use
+          er-java-scaffold-<run_id>. Must not already contain the scaffold.
+        required: false
+        default: ""
+      service_name:
+        description: Maven artifactId / service name written into the scaffold
+        required: true
+        default: payment-gateway
+      java_package:
+        description: Java package in dotted form
+        required: true
+        default: com.example.demo
+      java_package_path:
+        description: Same package as a path (runtime does not transform dotted → path)
+        required: true
+        default: com/example/demo
+      private_repo:
+        description: Create the target repo as private (true/false)
+        required: true
+        default: "true"
+      capabilities_repo:
+        description: Capability Registry repo (owner/name) — full store, not one file
+        required: true
+        default: kishore-gutta/engineering-runtime-capabilities
+      capabilities_ref:
+        description: >
+          Registry ref to install. Default "main" = latest published tip.
+          Pin a tag/SHA only when reproducing an older capability version.
+        required: true
+        default: main
+
+permissions:
+  contents: read
+
+env:
+  ENGINEERING_RUNTIME_HOME: ${{ github.workspace }}/runtime-home
+  RUNTIME_CONFIG_FILE: ${{ github.workspace }}/runtime-home/config.yaml
+  RUNTIME_POLICY_FILE: ${{ github.workspace }}/runtime-home/policy-config.yaml
+  ENGINEERING_RUNTIME_CONSUMER: ci
+  RUNTIME_GITHUB_TOKEN: ${{ secrets.RUNTIME_GITHUB_TOKEN }}
+  SERVICE_NAME: ${{ inputs.service_name }}
+  JAVA_PACKAGE: ${{ inputs.java_package }}
+  JAVA_PACKAGE_PATH: ${{ inputs.java_package_path }}
+  PRIVATE_REPO: ${{ inputs.private_repo }}
+  CAPABILITIES_REPO: ${{ inputs.capabilities_repo }}
+  CAPABILITIES_REF: ${{ inputs.capabilities_ref }}
+  # Resolve by registry name only — never a vendored examples/ path
+  EXECUTE_CAPABILITY: github/java-service-scaffold-and-ship
+
+jobs:
+  scaffold-ship-dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout samples (for setup-runtime action)
+        uses: actions/checkout@v4
+
+      - name: Setup Engineering Runtime
+        uses: ./.github/actions/setup-runtime
+        with:
+          runtime_github_token: ${{ secrets.RUNTIME_GITHUB_TOKEN }}
+          github_organization: ${{ vars.GITHUB_ORG || github.repository_owner }}
+
+      - name: Clone latest Capability Registry (full store)
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.CAPABILITIES_REPO }}
+          ref: ${{ env.CAPABILITIES_REF }}
+          path: engineering-runtime-capabilities
+          # Always take the tip of the ref (latest published on that branch/tag)
+          fetch-depth: 1
+          token: ${{ secrets.RUNTIME_GITHUB_TOKEN }}
+
+      - name: Install registry → RUNTIME_CAPABILITIES_DIR + pin SHA used
+        id: registry
+        run: |
+          set -euo pipefail
+          REGISTRY_ROOT="${GITHUB_WORKSPACE}/engineering-runtime-capabilities"
+          CAP_DIR="${REGISTRY_ROOT}/capabilities"
+          if [ ! -d "${CAP_DIR}" ]; then
+            echo "::error::Expected ${CAP_DIR} after registry clone — layout should be capabilities/{files,github}/..."
+            ls -la "${REGISTRY_ROOT}" || true
+            exit 1
+          fi
+          if [ ! -f "${CAP_DIR}/github/java-service-scaffold-and-ship.md" ]; then
+            echo "::error::Registry is missing github/java-service-scaffold-and-ship — publish it to ${CAPABILITIES_REPO}@${CAPABILITIES_REF} first."
+            find "${CAP_DIR}/github" -type f -name '*.md' | sort | head -50
+            exit 1
+          fi
+
+          SHA="$(git -C "${REGISTRY_ROOT}" rev-parse HEAD)"
+          SHORT_SHA="$(git -C "${REGISTRY_ROOT}" rev-parse --short HEAD)"
+          count="$(find "${CAP_DIR}" -type f -name '*.md' ! -name README.md | wc -l | tr -d ' ')"
+
+          # Persist for every later step — same seam as capabilities-from-registry.yaml
+          echo "RUNTIME_CAPABILITIES_DIR=${CAP_DIR}" >> "${GITHUB_ENV}"
+
+          echo "sha=${SHA}" >> "${GITHUB_OUTPUT}"
+          echo "short_sha=${SHORT_SHA}" >> "${GITHUB_OUTPUT}"
+          echo "count=${count}" >> "${GITHUB_OUTPUT}"
+
+          echo "=== Capability Registry installed (latest ${CAPABILITIES_REF}) ==="
+          echo "store:    ${CAPABILITIES_REPO}@${CAPABILITIES_REF}"
+          echo "sha:      ${SHA}"
+          echo "dir:      ${CAP_DIR}"
+          echo "files:    ${count}"
+          echo "execute:  ${EXECUTE_CAPABILITY}  (by name from registry — not samples/examples)"
+          echo "source:   https://github.com/${CAPABILITIES_REPO}/blob/${SHA}/capabilities/github/java-service-scaffold-and-ship.md"
+
+      - name: Resolve fresh target repository name
+        id: target
+        run: |
+          set -euo pipefail
+          NAME="${{ inputs.repo_name }}"
+          if [ -z "${NAME}" ]; then
+            NAME="er-java-scaffold-${GITHUB_RUN_ID}"
+          fi
+          echo "repo_name=${NAME}" >> "${GITHUB_OUTPUT}"
+          echo "Target repo name: ${NAME}"
+
+      - name: Auth + create empty target repository
+        id: create
+        env:
+          GH_TOKEN: ${{ secrets.RUNTIME_GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          runtime auth login github
+
+          # Owner = authenticated token subject (POST /user/repos creates there)
+          OWNER="$(gh api user -q .login)"
+          REPO="${OWNER}/${{ steps.target.outputs.repo_name }}"
+          echo "repository=${REPO}" >> "${GITHUB_OUTPUT}"
+          echo "Creating fresh empty repo: ${REPO} (private=${PRIVATE_REPO})"
+
+          # Also from the registry (by name)
+          runtime --output json capability execute github/github-repositories-create \
+            --input "name=${{ steps.target.outputs.repo_name }}" \
+            --input "private=${PRIVATE_REPO}" \
+            --input "description=CI demo: Java service from Capability Registry@${{ steps.registry.outputs.short_sha }} (no AI in this run)"
+
+          echo "Created https://github.com/${REPO}"
+
+      - name: Configure git identity + credentials for bare git push
+        run: |
+          set -euo pipefail
+          # Capability docs: runtime does not map `git` in command_providers,
+          # so clone/commit/push use the machine credential helper — same as a
+          # laptop where `git push` already works.
+          git config --global user.name "engineering-runtime-samples[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --global credential.helper store
+          printf 'https://x-access-token:%s@github.com\n' "${RUNTIME_GITHUB_TOKEN}" > "${HOME}/.git-credentials"
+          chmod 600 "${HOME}/.git-credentials"
+          echo "Git credential helper configured for github.com"
+
+      - name: Validate latest registry capability by name
+        run: |
+          set -euo pipefail
+          echo "Validating ${EXECUTE_CAPABILITY} from RUNTIME_CAPABILITIES_DIR=${RUNTIME_CAPABILITIES_DIR}"
+          echo "Registry SHA: ${{ steps.registry.outputs.sha }}"
+          runtime capability validate "${EXECUTE_CAPABILITY}"
+
+      - name: Execute latest registry capability (runtime only — no AI)
+        env:
+          TARGET_REPO: ${{ steps.create.outputs.repository }}
+        run: |
+          set -euo pipefail
+          WORKDIR="${GITHUB_WORKSPACE}/scaffold-workdir"
+          rm -rf "${WORKDIR}"
+
+          echo "=== Replaying Capability Registry capability via runtime (\$0 AI) ==="
+          echo "registry:    ${CAPABILITIES_REPO}@${CAPABILITIES_REF} (${{ steps.registry.outputs.sha }})"
+          echo "capability:  ${EXECUTE_CAPABILITY}"
+          echo "repository:  ${TARGET_REPO}"
+          echo "workdir:     ${WORKDIR}"
+          echo "service:     ${SERVICE_NAME}"
+
+          runtime --output json capability execute "${EXECUTE_CAPABILITY}" \
+            --input "repository=${TARGET_REPO}" \
+            --input "workdir=${WORKDIR}" \
+            --input "service_name=${SERVICE_NAME}" \
+            --input "java_package=${JAVA_PACKAGE}" \
+            --input "java_package_path=${JAVA_PACKAGE_PATH}"
+
+          echo "=== Scaffold tree ==="
+          find "${WORKDIR}" -type f | sort
+
+      - name: Show dispatched java-ci runs
+        if: success()
+        env:
+          TARGET_REPO: ${{ steps.create.outputs.repository }}
+        run: |
+          set -euo pipefail
+          echo "Target: https://github.com/${TARGET_REPO}"
+          echo "Workflow file: https://github.com/${TARGET_REPO}/blob/main/.github/workflows/java-ci.yml"
+          echo "Capability used: https://github.com/${CAPABILITIES_REPO}/blob/${{ steps.registry.outputs.sha }}/capabilities/github/java-service-scaffold-and-ship.md"
+          runtime github run list --repo "${TARGET_REPO}" --limit 5
+
+      - name: Audit trail (proof every step went through the runtime)
+        if: always()
+        run: runtime audit tail -n 40
+
+      - name: Auth logout
+        if: always()
+        run: runtime auth logout github || true
