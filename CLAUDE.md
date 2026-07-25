@@ -20,7 +20,8 @@ binary always comes from
 [`kishore-gutta/engineering-runtime-releases`](https://github.com/kishore-gutta/engineering-runtime-releases)
 in CI, or from `../engineering-runtime` when dry-running locally. Source
 of truth for behavior remains `../engineering-runtime`; this repo only
-exercises it.
+exercises it. For AI-assisted engineering that must stay on the runtime
+path, see `../engineering-runtime-ai-agent`.
 
 When the workspace map (`../CLAUDE.md`) still describes this folder as an
 empty scaffold, **this file wins** for what the samples repo actually is
