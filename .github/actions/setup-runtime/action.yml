@@ -1,6 +1,6 @@
 name: Setup Engineering Runtime
 description: >
-  Download the latest Engineering Runtime binary from
+  Download an Engineering Runtime binary release from
   kishore-gutta/engineering-runtime-releases, put it on PATH, bootstrap a
   throwaway Runtime Home, and optionally seed the GitHub organization into
   Runtime Context (needed by team list / issue list / org-scoped ops).
@@ -10,28 +10,67 @@ inputs:
     description: GitHub organization to write into Runtime Context
     required: false
     default: ""
+  runtime_github_token:
+    description: >
+      secrets.RUNTIME_GITHUB_TOKEN — used as GH_TOKEN for
+      `gh release download` from kishore-gutta/engineering-runtime-releases.
+      Must have contents:read on that repo while it is private.
+    required: true
+  version:
+    description: >
+      Release tag to install (e.g. v0.4.0). Empty = latest non-draft release.
+    required: false
+    default: ""
 
 runs:
   using: composite
   steps:
-    - name: Install Engineering Runtime (latest release)
+    - name: Install Engineering Runtime
       shell: bash
       env:
-        GH_TOKEN: ${{ github.token }}
+        # gh authenticates release downloads via GH_TOKEN. Always the
+        # runtime's RUNTIME_GITHUB_TOKEN secret — never github.token from
+        # the samples repo (cannot see private -releases).
+        GH_TOKEN: ${{ inputs.runtime_github_token }}
+        RUNTIME_GITHUB_TOKEN: ${{ inputs.runtime_github_token }}
         RUNTIME_RELEASES_REPO: kishore-gutta/engineering-runtime-releases
+        RUNTIME_VERSION: ${{ inputs.version }}
       run: |
         set -euo pipefail
         mkdir -p runtime-install
         cd runtime-install
 
-        gh release download \
-          --repo "${RUNTIME_RELEASES_REPO}" \
-          --pattern "*-linux-amd64.tar.gz" \
-          --pattern "SHA256SUMS.txt" \
-          --clobber
+        if [ -z "${RUNTIME_GITHUB_TOKEN}" ]; then
+          echo "::error::RUNTIME_GITHUB_TOKEN is empty — set the samples repo secret and pass it as runtime_github_token." >&2
+          exit 1
+        fi
+
+        if ! gh release list --repo "${RUNTIME_RELEASES_REPO}" -L 1 | grep -q .; then
+          cat <<'EOF' >&2
+        ::error::No readable releases in kishore-gutta/engineering-runtime-releases.
+
+        Common causes:
+          1. Repo is private and RUNTIME_GITHUB_TOKEN lacks contents:read on it
+          2. No release published yet (cut one from engineering-runtime)
+        EOF
+          exit 1
+        fi
+
+        download_args=(--repo "${RUNTIME_RELEASES_REPO}" --pattern "*-linux-amd64.tar.gz" --pattern "SHA256SUMS.txt" --clobber)
+        if [ -n "${RUNTIME_VERSION}" ]; then
+          download_args+=("${RUNTIME_VERSION}")
+          echo "Downloading release ${RUNTIME_VERSION} with RUNTIME_GITHUB_TOKEN"
+        else
+          echo "Downloading latest release with RUNTIME_GITHUB_TOKEN"
+        fi
+
+        if ! gh release download "${download_args[@]}"; then
+          echo "::error::gh release download failed for ${RUNTIME_RELEASES_REPO} (version='${RUNTIME_VERSION:-latest}'). Check RUNTIME_GITHUB_TOKEN access." >&2
+          exit 1
+        fi
 
         ARCHIVE="$(ls engineering-runtime-*-linux-amd64.tar.gz)"
-        echo "Resolved latest release archive: ${ARCHIVE}"
+        echo "Resolved release archive: ${ARCHIVE}"
         sha256sum -c <(grep "${ARCHIVE}" SHA256SUMS.txt)
 
         tar -xzf "${ARCHIVE}"
@@ -79,4 +118,3 @@ runs:
         )
         PY
         runtime context show
-

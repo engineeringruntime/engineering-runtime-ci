@@ -35,10 +35,10 @@ full capability tree into the working tree.
 
 | Kind | Name | Purpose |
 |---|---|---|
-| Secret | `RUNTIME_GITHUB_TOKEN` | GitHub PAT for Auth Engine + GitHub provider ops (`repo`, `read:org`, `notifications`, plus scopes each workflow needs — e.g. `security_events` for security posture) |
+| Secret | `RUNTIME_GITHUB_TOKEN` | GitHub PAT used for (1) **`gh release download`** from `kishore-gutta/engineering-runtime-releases` (passed to `setup-runtime` as `runtime_github_token` → `GH_TOKEN`; needs `contents: read` while that repo is private), and (2) Auth Engine + GitHub provider ops. Never use `github.token` for the binary download. |
 | Variable (optional) | `GITHUB_ORG` | Org written into Runtime Context; defaults to `github.repository_owner` |
 
-Release download reuses the built-in `${{ github.token }}` as `GH_TOKEN`.
+Longer-term: make `engineering-runtime-releases` **public** (its intended role as the distribution repo), then download can use `github.token` again. Until then, the PAT above is required.
 
 ## Workflows
 

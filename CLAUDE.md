@@ -218,12 +218,13 @@ Specs and cheatsheets are **not** checked in — read
 
 | Kind | Name | Purpose |
 |---|---|---|
-| Secret | `RUNTIME_GITHUB_TOKEN` | Auth Engine + GitHub provider |
+| Secret | `RUNTIME_GITHUB_TOKEN` | (1) Download binaries from `engineering-runtime-releases` via `gh release download` (`contents: read`); (2) Auth Engine + GitHub provider. Passed into `setup-runtime` as `runtime_github_token` → `GH_TOKEN`. |
 | Variable (optional) | `GITHUB_ORG` | Seeded into Runtime Context; default `github.repository_owner` |
 
-Release download uses `${{ github.token }}` as `GH_TOKEN` for
-`gh release download` only — that is not a substitute for
-`RUNTIME_GITHUB_TOKEN`.
+`github.token` from this repo cannot read another **private** repo's
+releases — that produces `release not found` even when releases exist.
+Either keep using `RUNTIME_GITHUB_TOKEN`, or make
+`engineering-runtime-releases` public (preferred long-term).
 
 ---
 
