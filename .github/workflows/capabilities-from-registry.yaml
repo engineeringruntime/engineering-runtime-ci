@@ -1,0 +1,139 @@
+name: Capabilities from registry (clone)
+
+# Proves the future-shaped path: Runtime Home is still bootstrapped from
+# the binary (config/policy/specs/commands refresh on every install), while
+# capabilities are fetched from the external capabilities repo and resolved
+# via RUNTIME_CAPABILITIES_DIR — the same seam a Capability Registry install
+# will use later.
+#
+# Flow:
+#   1. Install runtime release + bootstrap runtime-home/ (capabilities dir
+#      forced empty during bootstrap so Home stays clean)
+#   2. Clone engineering-runtime-capabilities
+#   3. Point RUNTIME_CAPABILITIES_DIR at that clone's capabilities/
+#   4. Validate + execute one capability by name (not a full path)
+
+on:
+  schedule:
+    - cron: "15 6 * * 1" # weekly — keep the registry path warm
+  workflow_dispatch:
+    inputs:
+      capabilities_repo:
+        description: GitHub repo to clone (owner/name)
+        required: true
+        default: kishore-gutta/engineering-runtime-capabilities
+      capabilities_ref:
+        description: Branch, tag, or SHA to checkout
+        required: true
+        default: main
+      capability:
+        description: Capability name under capabilities/ (e.g. files/notes-roundtrip)
+        required: true
+        default: files/notes-roundtrip
+      repository:
+        description: Optional input for GitHub caps that need repository=owner/repo
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+env:
+  ENGINEERING_RUNTIME_HOME: ${{ github.workspace }}/runtime-home
+  RUNTIME_CONFIG_FILE: ${{ github.workspace }}/runtime-home/config.yaml
+  RUNTIME_POLICY_FILE: ${{ github.workspace }}/runtime-home/policy-config.yaml
+  ENGINEERING_RUNTIME_CONSUMER: ci
+  CAPABILITIES_REPO: ${{ inputs.capabilities_repo || 'kishore-gutta/engineering-runtime-capabilities' }}
+  CAPABILITIES_REF: ${{ inputs.capabilities_ref || 'main' }}
+  CAPABILITY: ${{ inputs.capability || 'files/notes-roundtrip' }}
+
+jobs:
+  run-from-capabilities-repo:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout samples (for setup-runtime action)
+        uses: actions/checkout@v4
+
+      - name: Setup Engineering Runtime
+        uses: ./.github/actions/setup-runtime
+        with:
+          github_organization: ${{ vars.GITHUB_ORG || github.repository_owner }}
+
+      - name: Clone capabilities repo (registry stand-in)
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.CAPABILITIES_REPO }}
+          ref: ${{ env.CAPABILITIES_REF }}
+          path: engineering-runtime-capabilities
+          # Public clone; use token so private forks work too
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Point RUNTIME_CAPABILITIES_DIR at cloned library
+        run: |
+          set -euo pipefail
+          CAP_DIR="${GITHUB_WORKSPACE}/engineering-runtime-capabilities/capabilities"
+          if [ ! -d "${CAP_DIR}" ]; then
+            echo "Expected ${CAP_DIR} after clone — capabilities repo layout changed?"
+            ls -la "${GITHUB_WORKSPACE}/engineering-runtime-capabilities" || true
+            exit 1
+          fi
+          echo "RUNTIME_CAPABILITIES_DIR=${CAP_DIR}" >> "${GITHUB_ENV}"
+          echo "Capabilities resolve from: ${CAP_DIR}"
+          find "${CAP_DIR}" -name '*.md' ! -name README.md | head -20
+
+      - name: Show home vs capabilities dir (demo evidence)
+        run: |
+          set -euo pipefail
+          echo "ENGINEERING_RUNTIME_HOME=${ENGINEERING_RUNTIME_HOME}"
+          echo "RUNTIME_CONFIG_FILE=${RUNTIME_CONFIG_FILE}"
+          echo "RUNTIME_POLICY_FILE=${RUNTIME_POLICY_FILE}"
+          echo "RUNTIME_CAPABILITIES_DIR=${RUNTIME_CAPABILITIES_DIR}"
+          echo "--- runtime-home (binary-seeded) ---"
+          ls -la "${ENGINEERING_RUNTIME_HOME}"
+          echo "--- capability name ---"
+          echo "${CAPABILITY}"
+
+      - name: Validate capability by name (from capabilities repo)
+        run: |
+          set -euo pipefail
+          runtime capability validate "${CAPABILITY}"
+
+      - name: Execute capability by name
+        env:
+          RUNTIME_GITHUB_TOKEN: ${{ secrets.RUNTIME_GITHUB_TOKEN }}
+          REPOSITORY: ${{ inputs.repository || github.repository }}
+        run: |
+          set -euo pipefail
+          # Auth only when the capability is under github/ (files/* is auth-free).
+          case "${CAPABILITY}" in
+            github/*|*/github/*)
+              runtime auth login github
+              ;;
+          esac
+
+          # Common optional inputs — only pass when the capability declares them.
+          # notes-roundtrip needs path+message; repo-health needs repository.
+          extra=()
+          case "${CAPABILITY}" in
+            files/notes-roundtrip|files/notes-roundtrip.md)
+              extra+=(--input path=./notes-from-registry.txt --input message="hello from capabilities repo")
+              ;;
+            github/github-repo-health|github/github-repo-health.md)
+              extra+=(--input "repository=${REPOSITORY}")
+              ;;
+            github/github-repositories|github/github-repositories.md)
+              extra+=(--input "organization=${{ vars.GITHUB_ORG || github.repository_owner }}")
+              ;;
+          esac
+
+          runtime --output json capability execute "${CAPABILITY}" "${extra[@]}"
+
+          case "${CAPABILITY}" in
+            github/*|*/github/*)
+              runtime auth logout github
+              ;;
+          esac
+
+      - name: Audit trail
+        if: always()
+        run: runtime audit tail -n 30

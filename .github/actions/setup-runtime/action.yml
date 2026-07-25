@@ -1,0 +1,82 @@
+name: Setup Engineering Runtime
+description: >
+  Download the latest Engineering Runtime binary from
+  kishore-gutta/engineering-runtime-releases, put it on PATH, bootstrap a
+  throwaway Runtime Home, and optionally seed the GitHub organization into
+  Runtime Context (needed by team list / issue list / org-scoped ops).
+
+inputs:
+  github_organization:
+    description: GitHub organization to write into Runtime Context
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Install Engineering Runtime (latest release)
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        RUNTIME_RELEASES_REPO: kishore-gutta/engineering-runtime-releases
+      run: |
+        set -euo pipefail
+        mkdir -p runtime-install
+        cd runtime-install
+
+        gh release download \
+          --repo "${RUNTIME_RELEASES_REPO}" \
+          --pattern "*-linux-amd64.tar.gz" \
+          --pattern "SHA256SUMS.txt" \
+          --clobber
+
+        ARCHIVE="$(ls engineering-runtime-*-linux-amd64.tar.gz)"
+        echo "Resolved latest release archive: ${ARCHIVE}"
+        sha256sum -c <(grep "${ARCHIVE}" SHA256SUMS.txt)
+
+        tar -xzf "${ARCHIVE}"
+        PKG_DIR="$(basename "${ARCHIVE}" .tar.gz)"
+        echo "${PWD}/${PKG_DIR}" >> "${GITHUB_PATH}"
+
+    - name: Verify install
+      shell: bash
+      run: runtime version
+
+    - name: Bootstrap Runtime Home
+      shell: bash
+      env:
+        # Force Home-local capabilities. Clearing this avoids a job-level
+        # RUNTIME_CAPABILITIES_DIR accidentally receiving bootstrap seeds.
+        RUNTIME_CAPABILITIES_DIR: ""
+      run: runtime bootstrap
+
+    - name: Seed Runtime Context organization
+      if: inputs.github_organization != ''
+      shell: bash
+      env:
+        ORG: ${{ inputs.github_organization }}
+      run: |
+        set -euo pipefail
+        # Bootstrap seeds context.yaml; overwrite the org so curated ops
+        # that read Runtime Context (team list, issue list, …) resolve.
+        python3 - <<'PY'
+        import os
+        from pathlib import Path
+        org = os.environ["ORG"]
+        home = Path(os.environ["ENGINEERING_RUNTIME_HOME"])
+        home.joinpath("context.yaml").write_text(
+            "current: ci\n"
+            "contexts:\n"
+            "  ci:\n"
+            "    environment: ci\n"
+            "    github:\n"
+            f"      organization: \"{org}\"\n"
+            "    cloud:\n"
+            "      project: \"\"\n"
+            "    kubernetes:\n"
+            "      context: \"\"\n"
+            "      namespace: \"\"\n"
+        )
+        PY
+        runtime context show
+

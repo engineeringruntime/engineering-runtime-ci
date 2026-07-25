@@ -1,0 +1,58 @@
+name: GitHub — review queue
+
+# PRs waiting on me + stale open non-drafts for a repository.
+# stale_before defaults to 30 days ago (UTC date).
+
+on:
+  schedule:
+    - cron: "0 7 * * 1-5" # weekdays 07:00 UTC
+  workflow_dispatch:
+    inputs:
+      repository:
+        description: Repository as owner/repo
+        required: true
+        default: ""
+      stale_before:
+        description: ISO date YYYY-MM-DD — open non-drafts created before this are stale
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+  pull-requests: read
+
+env:
+  ENGINEERING_RUNTIME_HOME: ${{ github.workspace }}/runtime-home
+  RUNTIME_CONFIG_FILE: ${{ github.workspace }}/runtime-home/config.yaml
+  RUNTIME_POLICY_FILE: ${{ github.workspace }}/runtime-home/policy-config.yaml
+  ENGINEERING_RUNTIME_CONSUMER: ci
+
+jobs:
+  review-queue:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Engineering Runtime
+        uses: ./.github/actions/setup-runtime
+        with:
+          github_organization: ${{ vars.GITHUB_ORG || github.repository_owner }}
+
+      - name: Execute github-review-queue
+        env:
+          RUNTIME_GITHUB_TOKEN: ${{ secrets.RUNTIME_GITHUB_TOKEN }}
+          REPOSITORY: ${{ inputs.repository || github.repository }}
+          STALE_BEFORE: ${{ inputs.stale_before }}
+        run: |
+          set -euo pipefail
+          if [ -z "${STALE_BEFORE}" ]; then
+            STALE_BEFORE="$(date -u -d '30 days ago' +%Y-%m-%d)"
+          fi
+          echo "repository=${REPOSITORY} stale_before=${STALE_BEFORE}"
+          runtime auth login github
+          runtime capability validate examples/capabilities/github/github-review-queue.md
+          runtime --output json capability execute examples/capabilities/github/github-review-queue.md \
+            --input "repository=${REPOSITORY}" \
+            --input "stale_before=${STALE_BEFORE}"
+          runtime auth logout github
+          runtime audit tail -n 20

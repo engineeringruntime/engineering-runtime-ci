@@ -1,0 +1,40 @@
+name: GitHub — org health check
+
+# org list + repo list + team list + issue list for the active Runtime
+# Context organization (vars.GITHUB_ORG or the repo owner).
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+env:
+  ENGINEERING_RUNTIME_HOME: ${{ github.workspace }}/runtime-home
+  RUNTIME_CONFIG_FILE: ${{ github.workspace }}/runtime-home/config.yaml
+  RUNTIME_POLICY_FILE: ${{ github.workspace }}/runtime-home/policy-config.yaml
+  ENGINEERING_RUNTIME_CONSUMER: ci
+
+jobs:
+  org-health:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Engineering Runtime
+        uses: ./.github/actions/setup-runtime
+        with:
+          github_organization: ${{ vars.GITHUB_ORG || github.repository_owner }}
+
+      - name: Execute github-org-health-check
+        env:
+          RUNTIME_GITHUB_TOKEN: ${{ secrets.RUNTIME_GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          runtime auth login github
+          runtime capability validate examples/capabilities/github/github-org-health-check.md
+          runtime --output json capability execute examples/capabilities/github/github-org-health-check.md
+          runtime auth logout github
+          runtime audit tail -n 20

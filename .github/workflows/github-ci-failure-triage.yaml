@@ -1,0 +1,50 @@
+name: GitHub — CI failure triage
+
+# List failing Actions runs, then inspect one run's failed logs.
+# Manual only — supply run_id (from Actions UI or a prior run list).
+
+on:
+  workflow_dispatch:
+    inputs:
+      repository:
+        description: Repository as owner/repo
+        required: true
+        default: ""
+      run_id:
+        description: Actions run id to inspect
+        required: true
+
+permissions:
+  contents: read
+  actions: read
+
+env:
+  ENGINEERING_RUNTIME_HOME: ${{ github.workspace }}/runtime-home
+  RUNTIME_CONFIG_FILE: ${{ github.workspace }}/runtime-home/config.yaml
+  RUNTIME_POLICY_FILE: ${{ github.workspace }}/runtime-home/policy-config.yaml
+  ENGINEERING_RUNTIME_CONSUMER: ci
+
+jobs:
+  ci-failure-triage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Engineering Runtime
+        uses: ./.github/actions/setup-runtime
+        with:
+          github_organization: ${{ vars.GITHUB_ORG || github.repository_owner }}
+
+      - name: Execute github-ci-failure-triage
+        env:
+          RUNTIME_GITHUB_TOKEN: ${{ secrets.RUNTIME_GITHUB_TOKEN }}
+          REPOSITORY: ${{ inputs.repository || github.repository }}
+        run: |
+          set -euo pipefail
+          runtime auth login github
+          runtime capability validate examples/capabilities/github/github-ci-failure-triage.md
+          runtime --output json capability execute examples/capabilities/github/github-ci-failure-triage.md \
+            --input "repository=${REPOSITORY}" \
+            --input "run_id=${{ inputs.run_id }}"
+          runtime auth logout github
+          runtime audit tail -n 20

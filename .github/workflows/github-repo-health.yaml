@@ -1,0 +1,47 @@
+name: GitHub — repo health
+
+# Runs examples/capabilities/github/github-repo-health.md against a repository
+# (defaults to this repo). Read-only; needs RUNTIME_GITHUB_TOKEN + gh.
+
+on:
+  schedule:
+    - cron: "0 6 * * 1" # Mondays 06:00 UTC
+  workflow_dispatch:
+    inputs:
+      repository:
+        description: Repository as owner/repo
+        required: true
+        default: ""
+
+permissions:
+  contents: read
+
+env:
+  ENGINEERING_RUNTIME_HOME: ${{ github.workspace }}/runtime-home
+  RUNTIME_CONFIG_FILE: ${{ github.workspace }}/runtime-home/config.yaml
+  RUNTIME_POLICY_FILE: ${{ github.workspace }}/runtime-home/policy-config.yaml
+  ENGINEERING_RUNTIME_CONSUMER: ci
+
+jobs:
+  repo-health:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Engineering Runtime
+        uses: ./.github/actions/setup-runtime
+        with:
+          github_organization: ${{ vars.GITHUB_ORG || github.repository_owner }}
+
+      - name: Execute github-repo-health
+        env:
+          RUNTIME_GITHUB_TOKEN: ${{ secrets.RUNTIME_GITHUB_TOKEN }}
+          REPOSITORY: ${{ inputs.repository || github.repository }}
+        run: |
+          set -euo pipefail
+          runtime auth login github
+          runtime capability validate examples/capabilities/github/github-repo-health.md
+          runtime --output json capability execute examples/capabilities/github/github-repo-health.md \
+            --input "repository=${REPOSITORY}"
+          runtime auth logout github
+          runtime audit tail -n 20

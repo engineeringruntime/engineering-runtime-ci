@@ -1,0 +1,55 @@
+name: GitHub — access review
+
+# Least-privilege evidence for an org/team/repo. Manual only — needs a
+# real team_slug and username. Read-only (policy denies api DELETE).
+
+on:
+  workflow_dispatch:
+    inputs:
+      organization:
+        description: GitHub organization
+        required: true
+      team_slug:
+        description: Team slug whose members/repos to list
+        required: true
+      repository:
+        description: Repository as owner/repo
+        required: true
+      username:
+        description: Login whose effective permission to report
+        required: true
+
+permissions:
+  contents: read
+
+env:
+  ENGINEERING_RUNTIME_HOME: ${{ github.workspace }}/runtime-home
+  RUNTIME_CONFIG_FILE: ${{ github.workspace }}/runtime-home/config.yaml
+  RUNTIME_POLICY_FILE: ${{ github.workspace }}/runtime-home/policy-config.yaml
+  ENGINEERING_RUNTIME_CONSUMER: ci
+
+jobs:
+  access-review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Engineering Runtime
+        uses: ./.github/actions/setup-runtime
+        with:
+          github_organization: ${{ inputs.organization }}
+
+      - name: Execute github-access-review
+        env:
+          RUNTIME_GITHUB_TOKEN: ${{ secrets.RUNTIME_GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          runtime auth login github
+          runtime capability validate examples/capabilities/github/github-access-review.md
+          runtime --output json capability execute examples/capabilities/github/github-access-review.md \
+            --input "organization=${{ inputs.organization }}" \
+            --input "team_slug=${{ inputs.team_slug }}" \
+            --input "repository=${{ inputs.repository }}" \
+            --input "username=${{ inputs.username }}"
+          runtime auth logout github
+          runtime audit tail -n 30

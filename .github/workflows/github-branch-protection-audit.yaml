@@ -1,0 +1,56 @@
+name: GitHub — branch protection audit
+
+# Prove a branch is protected + list repo rulesets. Read-only.
+
+on:
+  schedule:
+    - cron: "0 8 * * 1"
+  workflow_dispatch:
+    inputs:
+      repository:
+        description: Repository as owner/repo
+        required: true
+        default: ""
+      branch:
+        description: Branch to inspect
+        required: true
+        default: main
+
+permissions:
+  contents: read
+
+env:
+  ENGINEERING_RUNTIME_HOME: ${{ github.workspace }}/runtime-home
+  RUNTIME_CONFIG_FILE: ${{ github.workspace }}/runtime-home/config.yaml
+  RUNTIME_POLICY_FILE: ${{ github.workspace }}/runtime-home/policy-config.yaml
+  ENGINEERING_RUNTIME_CONSUMER: ci
+
+jobs:
+  branch-protection-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Engineering Runtime
+        uses: ./.github/actions/setup-runtime
+        with:
+          github_organization: ${{ vars.GITHUB_ORG || github.repository_owner }}
+
+      - name: Execute github-branch-protection-audit
+        env:
+          RUNTIME_GITHUB_TOKEN: ${{ secrets.RUNTIME_GITHUB_TOKEN }}
+          REPOSITORY: ${{ inputs.repository || github.repository }}
+          BRANCH: ${{ inputs.branch || 'main' }}
+        run: |
+          set -euo pipefail
+          runtime auth login github
+          runtime capability validate examples/capabilities/github/github-branch-protection-audit.md
+          # 404 from GitHub when unprotected is itself the audit signal —
+          # keep the job green so a scheduled audit still publishes evidence.
+          set +e
+          runtime --output json capability execute examples/capabilities/github/github-branch-protection-audit.md \
+            --input "repository=${REPOSITORY}" \
+            --input "branch=${BRANCH}"
+          set -e
+          runtime auth logout github
+          runtime audit tail -n 20

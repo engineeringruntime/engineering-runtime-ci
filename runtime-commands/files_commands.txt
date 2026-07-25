@@ -1,9 +1,0 @@
-# files.* Runtime Commands — copy-paste cheatsheet
-# Fixed, compiled into the binary (internal/commands) — not YAML data.
-# provider: none — never calls the Auth Engine.
-
-runtime files write ./notes.txt hello world
-runtime files read ./notes.txt
-runtime files append ./notes.txt another line
-runtime files list .
-runtime files delete ./notes.txt

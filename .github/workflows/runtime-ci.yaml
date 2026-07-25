@@ -1,16 +1,10 @@
 name: Runtime CI
 
-# Installs the latest Engineering Runtime binary release from
-# kishore-gutta/engineering-runtime-releases (source code is never published
-# there, only build artifacts — see ../../../engineering-runtime/docs/05-development/release-process.md),
-# then exercises it against this repo's own runtime-commands/ setup:
-#   1. runtime config validate        (config_commands.txt)
-#   2. runtime auth status/login/logout github (auth_commands.txt)
-#   3. runtime github ... convenience commands  (github_commands.txt)
-# Config/policy come from this repo's runtime-commands/config.yaml and
-# policy-config.yaml via RUNTIME_CONFIG_FILE / RUNTIME_POLICY_FILE, per
-# ../../../engineering-runtime/README.md's "Config & Policy overrides"
-# section for CI/CD — this repo's own copies are never mutated by the run.
+# Smoke test: install the latest Engineering Runtime release, bootstrap a
+# throwaway Runtime Home (config/policy/context/commands come from the
+# binary), validate sample capabilities, then exercise auth + a few
+# context-free github commands and print the audit trail.
+# See README.md for required secrets.
 
 on:
   push:
@@ -23,10 +17,10 @@ permissions:
   contents: read
 
 env:
-  RUNTIME_RELEASES_REPO: kishore-gutta/engineering-runtime-releases
-  RUNTIME_CONFIG_FILE: ${{ github.workspace }}/runtime-commands/config.yaml
-  RUNTIME_POLICY_FILE: ${{ github.workspace }}/runtime-commands/policy-config.yaml
-  ENGINEERING_RUNTIME_HOME: ${{ github.workspace }}/.runtime-home
+  ENGINEERING_RUNTIME_HOME: ${{ github.workspace }}/runtime-home
+  RUNTIME_CONFIG_FILE: ${{ github.workspace }}/runtime-home/config.yaml
+  RUNTIME_POLICY_FILE: ${{ github.workspace }}/runtime-home/policy-config.yaml
+  ENGINEERING_RUNTIME_CONSUMER: ci
 
 jobs:
   runtime-validate:
@@ -35,44 +29,31 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install Engineering Runtime (latest release)
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          set -euo pipefail
-          mkdir -p runtime-install
-          cd runtime-install
+      - name: Setup Engineering Runtime
+        uses: ./.github/actions/setup-runtime
+        with:
+          github_organization: ${{ vars.GITHUB_ORG || github.repository_owner }}
 
-          gh release download \
-            --repo "${RUNTIME_RELEASES_REPO}" \
-            --pattern "*-linux-amd64.tar.gz" \
-            --pattern "SHA256SUMS.txt" \
-            --clobber
-
-          ARCHIVE="$(ls engineering-runtime-*-linux-amd64.tar.gz)"
-          echo "Resolved latest release archive: ${ARCHIVE}"
-
-          sha256sum -c <(grep "${ARCHIVE}" SHA256SUMS.txt)
-
-          tar -xzf "${ARCHIVE}"
-          PKG_DIR="$(basename "${ARCHIVE}" .tar.gz)"
-          echo "${PWD}/${PKG_DIR}" >> "${GITHUB_PATH}"
-
-      - name: Verify install
-        run: runtime version
-
-      - name: Bootstrap Runtime Home
-        run: runtime bootstrap
-
-      - name: Config diagnostics (runtime config validate)
+      - name: Config diagnostics
         run: runtime config validate
 
-      - name: Validate sample capabilities
+      - name: Validate all sample capabilities
         run: |
-          runtime capability validate examples/capabilities/notes-roundtrip.md
-          runtime capability validate examples/capabilities/github-repositories.md
+          set -euo pipefail
+          shopt -s nullglob globstar
+          for f in examples/capabilities/**/*.md; do
+            [ "$(basename "$f")" = README.md ] && continue
+            echo "==> validate $f"
+            runtime capability validate "$f"
+          done
 
-      - name: Auth status (unaudited health check)
+      - name: Auth-free capability execute (files notes-roundtrip)
+        run: |
+          runtime capability execute examples/capabilities/files/notes-roundtrip.md \
+            --input path=./notes.txt \
+            --input message="hello from runtime-ci"
+
+      - name: Auth status
         env:
           RUNTIME_GITHUB_TOKEN: ${{ secrets.RUNTIME_GITHUB_TOKEN }}
         run: runtime auth status
@@ -82,13 +63,13 @@ jobs:
           RUNTIME_GITHUB_TOKEN: ${{ secrets.RUNTIME_GITHUB_TOKEN }}
         run: runtime auth login github
 
-      - name: Run github Runtime Commands
+      - name: Run github Runtime Commands (context-free)
         env:
           RUNTIME_GITHUB_TOKEN: ${{ secrets.RUNTIME_GITHUB_TOKEN }}
         run: |
           runtime github user get
-          runtime github organizations list
-          runtime github notifications list
+          runtime github org list
+          runtime github notification list
 
       - name: Auth logout github
         if: always()
