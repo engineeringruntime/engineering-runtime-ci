@@ -188,6 +188,8 @@ jobs:
           runtime capability validate "${EXECUTE_CAPABILITY}"
 
       - name: Execute latest registry capability (runtime only — no AI)
+        id: execute
+        continue-on-error: true
         env:
           TARGET_REPO: ${{ steps.create.outputs.repository }}
         run: |
@@ -212,8 +214,41 @@ jobs:
           echo "=== Scaffold tree ==="
           find "${WORKDIR}" -type f | sort
 
+      # Fresh repos: GitHub often returns 404 for workflow run for a few seconds
+      # after the first push that adds .github/workflows/*.yml (list can be empty
+      # even though the file is on main). Retry dispatch outside the capability.
+      - name: Ensure java-ci is registered and dispatched
+        env:
+          TARGET_REPO: ${{ steps.create.outputs.repository }}
+          GH_TOKEN: ${{ secrets.RUNTIME_GITHUB_TOKEN }}
+          EXECUTE_OUTCOME: ${{ steps.execute.outcome }}
+        run: |
+          set -euo pipefail
+          echo "Capability execute outcome: ${EXECUTE_OUTCOME}"
+          echo "Waiting for Actions to index java-ci.yml on ${TARGET_REPO}..."
+
+          registered=0
+          for i in $(seq 1 30); do
+            if gh workflow list --repo "${TARGET_REPO}" 2>/dev/null | grep -Eqi 'java-ci'; then
+              registered=1
+              echo "Registered after ~$((i * 2))s"
+              gh workflow list --repo "${TARGET_REPO}"
+              break
+            fi
+            sleep 2
+          done
+          if [ "${registered}" -ne 1 ]; then
+            echo "::error::java-ci.yml never appeared in workflow list for ${TARGET_REPO}"
+            exit 1
+          fi
+
+          # If the capability's workflow run step raced and failed, dispatch now.
+          if [ "${EXECUTE_OUTCOME}" != "success" ]; then
+            echo "Re-dispatching java-ci.yml after registry race..."
+            runtime github workflow run java-ci.yml --repo "${TARGET_REPO}" --ref main
+          fi
+
       - name: Show dispatched java-ci runs
-        if: success()
         env:
           TARGET_REPO: ${{ steps.create.outputs.repository }}
         run: |
