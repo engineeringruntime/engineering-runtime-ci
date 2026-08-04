@@ -57,10 +57,6 @@ Shared install: [`.github/actions/setup-runtime`](.github/actions/setup-runtime)
 | [`github-standards-audit.yaml`](.github/workflows/github-standards-audit.yaml) | weekly + dispatch | `github/github-repo-standards-audit` |
 | [`github-branch-protection-audit.yaml`](.github/workflows/github-branch-protection-audit.yaml) | weekly + dispatch | `github/github-branch-protection-audit` |
 | [`github-secrets-inventory.yaml`](.github/workflows/github-secrets-inventory.yaml) | monthly + dispatch | `github/github-secrets-inventory` |
-| [`github-repositories.yaml`](.github/workflows/github-repositories.yaml) | dispatch | `github/github-repositories` |
-| [`github-access-review.yaml`](.github/workflows/github-access-review.yaml) | dispatch | `github/github-access-review` (team + username) |
-| [`github-incident-forensics.yaml`](.github/workflows/github-incident-forensics.yaml) | dispatch | `github/github-incident-what-changed` |
-| [`github-ci-failure-triage.yaml`](.github/workflows/github-ci-failure-triage.yaml) | dispatch | `github/github-ci-failure-triage` (`run_id`) |
 
 Destructive packs (service onboarding, release cut) are **not** wired as
 scheduled CI — run those locally, or use the dispatch-only
