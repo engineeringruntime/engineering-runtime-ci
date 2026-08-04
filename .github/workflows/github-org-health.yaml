@@ -1,12 +1,23 @@
 name: GitHub — org health check
 
-# org list + repo list + team list + issue list for the active Runtime
-# Context organization (vars.GITHUB_ORG or the repo owner).
+# org list + repo list + team list + issue list for a GitHub organization.
+#
+# These operations are org-scoped: `repo list` resolves to /orgs/{org}/repos and
+# `team list` has no user-account equivalent. Seeding Runtime Context with
+# `github.repository_owner` therefore 404s on a personal account, because the
+# owner is a user, not an org. The resolve job below asks the runtime which orgs
+# the token actually belongs to and skips the run when there are none, instead
+# of failing red every Monday.
 
 on:
   schedule:
     - cron: "0 6 * * 1"
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      organization:
+        description: "Organization to check (defaults to vars.GITHUB_ORG, else the first org the token belongs to)"
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -19,7 +30,61 @@ env:
   RUNTIME_GITHUB_TOKEN: ${{ secrets.RUNTIME_GITHUB_TOKEN }}
 
 jobs:
+  resolve:
+    name: Resolve organization
+    runs-on: ubuntu-latest
+    outputs:
+      organization: ${{ steps.pick.outputs.organization }}
+      usable: ${{ steps.pick.outputs.usable }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Engineering Runtime
+        uses: ./.github/actions/setup-runtime
+        with:
+          runtime_github_token: ${{ secrets.RUNTIME_GITHUB_TOKEN }}
+          # Deliberately no github_organization — that is what we are resolving.
+
+      - name: Ask the runtime which orgs this token belongs to
+        id: pick
+        env:
+          RUNTIME_GITHUB_TOKEN: ${{ secrets.RUNTIME_GITHUB_TOKEN }}
+          REQUESTED: ${{ inputs.organization }}
+          CONFIGURED: ${{ vars.GITHUB_ORG }}
+        run: |
+          set -euo pipefail
+          runtime auth login github
+
+          # Discovery goes through the runtime, never a bare gh/curl call.
+          orgs_json="$(runtime --output json github org list)"
+          echo "$orgs_json" | jq -r '"orgs visible to this token: \(.output | length)"'
+
+          org=""
+          if [ -n "${REQUESTED:-}" ]; then
+            org="$REQUESTED"
+            echo "using organization from workflow input: $org"
+          elif [ -n "${CONFIGURED:-}" ]; then
+            org="$CONFIGURED"
+            echo "using organization from vars.GITHUB_ORG: $org"
+          else
+            org="$(echo "$orgs_json" | jq -r '.output[0].login // empty')"
+            [ -n "$org" ] && echo "using first org the token belongs to: $org"
+          fi
+
+          runtime auth logout github
+
+          if [ -z "$org" ]; then
+            echo "usable=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Skipped::This token belongs to no GitHub organization, and neither vars.GITHUB_ORG nor the workflow input is set. org list / team list are org-scoped, so there is nothing to check. Set repository variable GITHUB_ORG to enable this workflow."
+          else
+            echo "usable=true" >> "$GITHUB_OUTPUT"
+            echo "organization=$org" >> "$GITHUB_OUTPUT"
+          fi
+
   org-health:
+    name: Org health check
+    needs: resolve
+    if: needs.resolve.outputs.usable == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -28,7 +93,7 @@ jobs:
         uses: ./.github/actions/setup-runtime
         with:
           runtime_github_token: ${{ secrets.RUNTIME_GITHUB_TOKEN }}
-          github_organization: ${{ vars.GITHUB_ORG || github.repository_owner }}
+          github_organization: ${{ needs.resolve.outputs.organization }}
 
       - name: Execute github-org-health-check
         env:

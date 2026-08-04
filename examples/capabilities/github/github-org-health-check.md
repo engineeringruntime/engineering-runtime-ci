@@ -7,6 +7,12 @@ the authenticated user across it. No inputs — every step resolves
 `{org}` from the active Runtime Context. Requires
 `RUNTIME_GITHUB_TOKEN` to be exported.
 
+**Requires a real GitHub organization.** `repo list` resolves to
+`/orgs/{org}/repos` and `team list` has no user-account equivalent, so
+pointing Runtime Context at a personal account returns `404 Not Found`
+on step 2. The `github-org-health.yaml` workflow resolves an org via
+`github org list` first and skips when the token belongs to none.
+
 Run with:
 
 ```
