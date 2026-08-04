@@ -2,6 +2,13 @@ name: GitHub — security posture
 
 # Open Dependabot + code-scanning + secret-scanning alerts for a repo.
 # Read-only; requires a token with security_events (and related) read.
+#
+# All three endpoints 403 when the feature is switched off for the repository
+# ("Dependabot alerts are disabled for this repository"), and a capability has
+# no conditional steps — one disabled feature fails the whole workflow. The
+# preflight below probes the cheapest endpoint and skips with a notice when the
+# features are not enabled, so a scheduled run does not go red over a repo
+# setting.
 
 on:
   schedule:
@@ -36,7 +43,29 @@ jobs:
           runtime_github_token: ${{ secrets.RUNTIME_GITHUB_TOKEN }}
           github_organization: ${{ vars.GITHUB_ORG || github.repository_owner }}
 
+      - name: Check whether security features are enabled
+        id: preflight
+        env:
+          RUNTIME_GITHUB_TOKEN: ${{ secrets.RUNTIME_GITHUB_TOKEN }}
+          REPOSITORY: ${{ inputs.repository || github.repository }}
+        run: |
+          set -euo pipefail
+          runtime auth login github
+
+          # Cheapest probe of the same endpoint step 1 uses. A 403 here means
+          # the feature is off for this repo, not that the token is wrong.
+          if runtime github api GET "/repos/${REPOSITORY}/dependabot/alerts" per_page=1 >/dev/null 2>&1; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+            echo "security features reachable on ${REPOSITORY}"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice title=Skipped::Dependabot/code-scanning/secret-scanning alerts are not enabled (or not readable) on ${REPOSITORY}, so there is no security posture to report. Enable them in repository settings, or dispatch this workflow against a repo that has them on."
+          fi
+
+          runtime auth logout github
+
       - name: Execute github-security-posture
+        if: steps.preflight.outputs.enabled == 'true'
         env:
           RUNTIME_GITHUB_TOKEN: ${{ secrets.RUNTIME_GITHUB_TOKEN }}
           REPOSITORY: ${{ inputs.repository || github.repository }}
