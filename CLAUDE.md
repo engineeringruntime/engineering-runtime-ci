@@ -1,4 +1,4 @@
-# Engineering Runtime Samples — CI test harness & live demos
+# Engineering Runtime CI — test harness & live demos
 
 ## Mission
 
@@ -23,10 +23,10 @@ of truth for behavior remains `../engineering-runtime`; this repo only
 exercises it. For AI-assisted engineering that must stay on the runtime
 path, see `../engineering-runtime-ai-agent`.
 
-When the workspace map
-([`../engineering-runtime-workspace/CLAUDE.md`](../engineering-runtime-workspace/CLAUDE.md))
-still describes this folder as an empty scaffold, **this file wins** for what
-the ci repo actually is today.
+ER map:
+[`../../engineering-runtime-workspace/CLAUDE.md`](../../engineering-runtime-workspace/CLAUDE.md).
+Where it and this file disagree about what the ci repo *is*, **this file wins**
+— the map routes, this file specifies.
 
 ---
 
