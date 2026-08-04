@@ -79,7 +79,7 @@ jobs:
   scaffold-ship-dispatch:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout samples (for setup-runtime action)
+      - name: Checkout CI repo (for setup-runtime action)
         uses: actions/checkout@v4
 
       - name: Setup Engineering Runtime
@@ -173,7 +173,7 @@ jobs:
           # Capability docs: runtime does not map `git` in command_providers,
           # so clone/commit/push use the machine credential helper — same as a
           # laptop where `git push` already works.
-          git config --global user.name "engineering-runtime-samples[bot]"
+          git config --global user.name "engineering-runtime-ci[bot]"
           git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git config --global credential.helper store
           printf 'https://x-access-token:%s@github.com\n' "${RUNTIME_GITHUB_TOKEN}" > "${HOME}/.git-credentials"

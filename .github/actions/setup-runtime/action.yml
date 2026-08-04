@@ -30,7 +30,7 @@ runs:
       env:
         # gh authenticates release downloads via GH_TOKEN. Always the
         # runtime's RUNTIME_GITHUB_TOKEN secret — never github.token from
-        # the samples repo (cannot see private -releases).
+        # the ci repo (cannot see private -releases).
         GH_TOKEN: ${{ inputs.runtime_github_token }}
         RUNTIME_GITHUB_TOKEN: ${{ inputs.runtime_github_token }}
         RUNTIME_RELEASES_REPO: kishore-gutta/engineering-runtime-releases
@@ -41,7 +41,7 @@ runs:
         cd runtime-install
 
         if [ -z "${RUNTIME_GITHUB_TOKEN}" ]; then
-          echo "::error::RUNTIME_GITHUB_TOKEN is empty — set the samples repo secret and pass it as runtime_github_token." >&2
+          echo "::error::RUNTIME_GITHUB_TOKEN is empty — set the ci repo secret and pass it as runtime_github_token." >&2
           exit 1
         fi
 

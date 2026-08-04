@@ -48,7 +48,7 @@ jobs:
   install-capabilities-store:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout samples (for setup-runtime action)
+      - name: Checkout CI repo (for setup-runtime action)
         uses: actions/checkout@v4
 
       - name: Setup Engineering Runtime

@@ -1,4 +1,4 @@
-# engineering-runtime-samples
+# engineering-runtime-ci
 
 **CI test harness and live demo surface** for Engineering Runtime.
 

@@ -1,7 +1,7 @@
 name: GitHub — org repos + open PRs
 
 # examples/capabilities/github/github-repositories.md — repo list for an org,
-# then pr list (cwd = this checkout, so open PRs for this samples repo).
+# then pr list (cwd = this checkout, so open PRs for this ci repo).
 
 on:
   workflow_dispatch:

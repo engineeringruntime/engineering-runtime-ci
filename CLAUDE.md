@@ -26,7 +26,7 @@ path, see `../engineering-runtime-ai-agent`.
 When the workspace map
 ([`../engineering-runtime-workspace/CLAUDE.md`](../engineering-runtime-workspace/CLAUDE.md))
 still describes this folder as an empty scaffold, **this file wins** for what
-the samples repo actually is today.
+the ci repo actually is today.
 
 ---
 
@@ -116,7 +116,7 @@ store engineering knowledge:
 | An internal Capability Registry | Future: `runtime` fetch/install into a local dir, then the same `RUNTIME_CAPABILITIES_DIR` (or successor) seam |
 | A shared filesystem / monorepo path | Point `RUNTIME_CAPABILITIES_DIR` at that path |
 
-The invariant to protect in this samples repo:
+The invariant to protect in this ci repo:
 
 - **Binary owns** Runtime Home refresh (config, policy, specs, commands)
   on every install/upgrade.
@@ -208,7 +208,7 @@ Specs and cheatsheets are **not** checked in — read
    `RUNTIME_GITHUB_TOKEN` (Actions secret).
 7. **Reusable library capabilities** belong in the company store
    (today: `../engineering-runtime-capabilities` on GitHub; later: also
-   a registry). This samples repo keeps only CI smoke/demo fixtures.
+   a registry). This ci repo keeps only CI smoke/demo fixtures.
 8. **Keep vendored examples in sync** with
    `../engineering-runtime/capabilities/` when you depend on a change.
 9. **Destructive packs** (repo create + protection, release cut, DELETE)
