@@ -23,9 +23,10 @@ of truth for behavior remains `../engineering-runtime`; this repo only
 exercises it. For AI-assisted engineering that must stay on the runtime
 path, see `../engineering-runtime-ai-agent`.
 
-When the workspace map (`../CLAUDE.md`) still describes this folder as an
-empty scaffold, **this file wins** for what the samples repo actually is
-today.
+When the workspace map
+([`../engineering-runtime-workspace/CLAUDE.md`](../engineering-runtime-workspace/CLAUDE.md))
+still describes this folder as an empty scaffold, **this file wins** for what
+the samples repo actually is today.
 
 ---
 
