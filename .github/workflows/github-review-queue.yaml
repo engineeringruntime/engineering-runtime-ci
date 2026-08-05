@@ -52,8 +52,8 @@ jobs:
           fi
           echo "repository=${REPOSITORY} stale_before=${STALE_BEFORE}"
           runtime auth login github
-          runtime capability validate examples/capabilities/github/github-review-queue.md
-          runtime --output json capability execute examples/capabilities/github/github-review-queue.md \
+          runtime capability validate github/github-review-queue
+          runtime --output json capability execute github/github-review-queue \
             --input "repository=${REPOSITORY}" \
             --input "stale_before=${STALE_BEFORE}"
           runtime auth logout github

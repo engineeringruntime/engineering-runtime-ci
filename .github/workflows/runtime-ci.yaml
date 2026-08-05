@@ -2,7 +2,7 @@ name: Runtime CI
 
 # Smoke test: install the latest Engineering Runtime release, bootstrap a
 # throwaway Runtime Home (config/policy/context/commands come from the
-# binary), validate sample capabilities, then exercise auth + a few
+# binary), validate the capabilities it seeded, then exercise auth + a few
 # context-free github commands and print the audit trail.
 # See README.md for required secrets.
 
@@ -39,11 +39,11 @@ jobs:
       - name: Config diagnostics
         run: runtime config validate
 
-      - name: Validate all sample capabilities
+      - name: Validate every capability bootstrap seeded from the binary
         run: |
           set -euo pipefail
           shopt -s nullglob globstar
-          for f in examples/capabilities/**/*.md; do
+          for f in "${ENGINEERING_RUNTIME_HOME}"/capabilities/**/*.md; do
             [ "$(basename "$f")" = README.md ] && continue
             echo "==> validate $f"
             runtime capability validate "$f"
@@ -51,7 +51,7 @@ jobs:
 
       - name: Auth-free capability execute (files notes-roundtrip)
         run: |
-          runtime capability execute examples/capabilities/files/notes-roundtrip.md \
+          runtime capability execute files/notes-roundtrip \
             --input path=./notes.txt \
             --input message="hello from runtime-ci"
 

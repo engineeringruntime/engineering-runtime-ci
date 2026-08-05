@@ -101,7 +101,7 @@ jobs:
         run: |
           set -euo pipefail
           runtime auth login github
-          runtime capability validate examples/capabilities/github/github-org-health-check.md
-          runtime --output json capability execute examples/capabilities/github/github-org-health-check.md
+          runtime capability validate github/github-org-health-check
+          runtime --output json capability execute github/github-org-health-check
           runtime auth logout github
           runtime audit tail -n 20

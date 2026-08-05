@@ -46,11 +46,11 @@ jobs:
         run: |
           set -euo pipefail
           runtime auth login github
-          runtime capability validate examples/capabilities/github/github-branch-protection-audit.md
+          runtime capability validate github/github-branch-protection-audit
           # 404 from GitHub when unprotected is itself the audit signal —
           # keep the job green so a scheduled audit still publishes evidence.
           set +e
-          runtime --output json capability execute examples/capabilities/github/github-branch-protection-audit.md \
+          runtime --output json capability execute github/github-branch-protection-audit \
             --input "repository=${REPOSITORY}" \
             --input "branch=${BRANCH}"
           set -e

@@ -72,8 +72,8 @@ jobs:
         run: |
           set -euo pipefail
           runtime auth login github
-          runtime capability validate examples/capabilities/github/github-security-posture.md
-          runtime --output json capability execute examples/capabilities/github/github-security-posture.md \
+          runtime capability validate github/github-security-posture
+          runtime --output json capability execute github/github-security-posture \
             --input "repository=${REPOSITORY}"
           runtime auth logout github
           runtime audit tail -n 20

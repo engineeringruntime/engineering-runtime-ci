@@ -1,6 +1,6 @@
 name: GitHub — repo health
 
-# Runs examples/capabilities/github/github-repo-health.md against a repository
+# Runs github/github-repo-health against a repository
 # (defaults to this repo). Read-only; needs RUNTIME_GITHUB_TOKEN + gh.
 
 on:
@@ -42,8 +42,8 @@ jobs:
         run: |
           set -euo pipefail
           runtime auth login github
-          runtime capability validate examples/capabilities/github/github-repo-health.md
-          runtime --output json capability execute examples/capabilities/github/github-repo-health.md \
+          runtime capability validate github/github-repo-health
+          runtime --output json capability execute github/github-repo-health \
             --input "repository=${REPOSITORY}"
           runtime auth logout github
           runtime audit tail -n 20
