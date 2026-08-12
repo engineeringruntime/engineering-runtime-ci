@@ -48,9 +48,13 @@ Owned by: `.github/actions/setup-runtime/`.
 ### B. Bootstrap & Runtime Home
 
 - `ENGINEERING_RUNTIME_HOME` → throwaway `runtime-home/` (gitignored)
-- `runtime bootstrap` seeds from the binary: `config.yaml`,
-  `policy-config.yaml`, `context.yaml`, `commands/`, `specs/`,
-  `capabilities/`
+- `runtime bootstrap` creates working directories and refreshes the
+  runtime-owned trees (`commands/`, `specs/`). It seeds **no** `config.yaml`,
+  `policy-config.yaml` or capabilities — those are owned elsewhere, and with
+  no document the compiled defaults are in force
+- There is no `context.yaml`. Runtime retired its own context document; a
+  Home holding one **blocks** every command. Pass an organization, project or
+  namespace explicitly, or let the native tool decide
 - Idempotent re-bootstrap does not wipe user-owned edits (when we add
   tests that edit home files, assert that)
 - Version bump / wipe-home / re-bootstrap is the upgrade path

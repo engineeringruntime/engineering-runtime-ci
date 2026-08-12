@@ -2,12 +2,20 @@ name: Setup Engineering Runtime
 description: >
   Download an Engineering Runtime binary release from
   kishore-gutta/engineering-runtime-releases, put it on PATH, bootstrap a
-  throwaway Runtime Home, and optionally seed the GitHub organization into
-  Runtime Context (needed by team list / issue list / org-scoped ops).
+  throwaway Runtime Home, and export the GitHub organization for steps that
+  need one.
+
+  It used to write a context.yaml holding that organization. Runtime retired
+  its own context document — a Home holding one now blocks every command —
+  and org-scoped operations take the organization as an argument, so the
+  value is exported as RUNTIME_GITHUB_ORG for the job to pass explicitly.
 
 inputs:
   github_organization:
-    description: GitHub organization to write into Runtime Context
+    description: >
+      GitHub organization for org-scoped operations. Exported as
+      RUNTIME_GITHUB_ORG and echoed as the `organization` output; steps pass
+      it explicitly, e.g. `--input organization=$RUNTIME_GITHUB_ORG`.
     required: false
     default: ""
   runtime_github_token:
@@ -21,6 +29,11 @@ inputs:
       Release tag to install (e.g. v0.4.0). Empty = latest non-draft release.
     required: false
     default: ""
+
+outputs:
+  organization:
+    description: The GitHub organization callers should pass to org-scoped operations.
+    value: ${{ inputs.github_organization }}
 
 runs:
   using: composite
@@ -89,32 +102,19 @@ runs:
         RUNTIME_CAPABILITIES_DIR: ""
       run: runtime bootstrap
 
-    - name: Seed Runtime Context organization
+    - name: Export the GitHub organization
       if: inputs.github_organization != ''
       shell: bash
       env:
         ORG: ${{ inputs.github_organization }}
       run: |
         set -euo pipefail
-        # Bootstrap seeds context.yaml; overwrite the org so curated ops
-        # that read Runtime Context (team list, issue list, …) resolve.
-        python3 - <<'PY'
-        import os
-        from pathlib import Path
-        org = os.environ["ORG"]
-        home = Path(os.environ["ENGINEERING_RUNTIME_HOME"])
-        home.joinpath("context.yaml").write_text(
-            "current: ci\n"
-            "contexts:\n"
-            "  ci:\n"
-            "    environment: ci\n"
-            "    github:\n"
-            f"      organization: \"{org}\"\n"
-            "    cloud:\n"
-            "      project: \"\"\n"
-            "    kubernetes:\n"
-            "      context: \"\"\n"
-            "      namespace: \"\"\n"
-        )
-        PY
-        runtime context show
+        # Exported, not written into the Runtime Home. Runtime keeps no context
+        # document, and a Home holding one blocks every command — so a step that
+        # needs an organization passes it on the command line, where the audit
+        # record shows which one was used.
+        echo "RUNTIME_GITHUB_ORG=${ORG}" >> "$GITHUB_ENV"
+
+    - name: Report the effective context
+      shell: bash
+      run: runtime context show

@@ -102,6 +102,7 @@ jobs:
           set -euo pipefail
           runtime auth login github
           runtime capability validate github/github-org-health-check
-          runtime --output json capability execute github/github-org-health-check
+          runtime --output json capability execute github/github-org-health-check \
+            --input "organization=${RUNTIME_GITHUB_ORG}"
           runtime auth logout github
           runtime audit tail -n 20
