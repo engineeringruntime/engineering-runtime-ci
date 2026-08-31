@@ -1,10 +1,10 @@
 name: Capabilities from registry (clone)
 
 # Company capability store path (future registry seam):
-#   1. Install runtime + bootstrap runtime-home/ (binary owns config/policy/specs)
+#   1. Install runtime + bootstrap runtime-home/ (binary owns executable defaults)
 #   2. Clone the FULL capabilities repo (all capabilities, not one file)
-#   3. Set RUNTIME_CAPABILITIES_DIR → <clone>/capabilities
-#   4. Validate every capability in that store by name
+#   3. Capture <clone>/capabilities plus the checked-out commit SHA
+#   4. Validate every capability in that store by exact file path
 #   5. Optionally execute one capability (smoke / demo)
 
 on:
@@ -23,7 +23,8 @@ on:
       execute_capability:
         description: >
           After installing the full store, optionally execute one capability
-          by name (e.g. files/notes-roundtrip). Leave empty to validate-only.
+          by relative file path (e.g. files/notes-roundtrip). Leave empty to
+          validate-only.
         required: false
         default: files/notes-roundtrip
       repository:
@@ -36,8 +37,6 @@ permissions:
 
 env:
   ENGINEERING_RUNTIME_HOME: ${{ github.workspace }}/runtime-home
-  RUNTIME_CONFIG_FILE: ${{ github.workspace }}/runtime-home/config.yaml
-  RUNTIME_POLICY_FILE: ${{ github.workspace }}/runtime-home/policy-config.yaml
   ENGINEERING_RUNTIME_CONSUMER: ci
   RUNTIME_GITHUB_TOKEN: ${{ secrets.RUNTIME_GITHUB_TOKEN }}
   CAPABILITIES_REPO: ${{ inputs.capabilities_repo || 'kishore-gutta/engineering-runtime-capabilities' }}
@@ -54,7 +53,6 @@ jobs:
       - name: Setup Engineering Runtime
         uses: ./.github/actions/setup-runtime
         with:
-          runtime_github_token: ${{ secrets.RUNTIME_GITHUB_TOKEN }}
           github_organization: ${{ vars.GITHUB_ORG || github.repository_owner }}
 
       - name: Clone ALL capabilities from company store
@@ -63,10 +61,10 @@ jobs:
           repository: ${{ env.CAPABILITIES_REPO }}
           ref: ${{ env.CAPABILITIES_REF }}
           path: engineering-runtime-capabilities
-          # Same token as binary download — needed if the capabilities repo is private
+          # Needed only when the company capability store is private.
           token: ${{ secrets.RUNTIME_GITHUB_TOKEN }}
 
-      - name: Set RUNTIME_CAPABILITIES_DIR to the full store
+      - name: Resolve the full capability source
         id: caps
         run: |
           set -euo pipefail
@@ -77,58 +75,69 @@ jobs:
             exit 1
           fi
 
-          # Persist for every later step in this job
-          echo "RUNTIME_CAPABILITIES_DIR=${CAP_DIR}" >> "${GITHUB_ENV}"
+          # Persist a workflow-local path without changing Runtime's implicit
+          # compatibility-cache location or its provenance label.
+          echo "CAPABILITY_SOURCE_DIR=${CAP_DIR}" >> "${GITHUB_ENV}"
+          revision="$(git -C "${GITHUB_WORKSPACE}/engineering-runtime-capabilities" rev-parse HEAD)"
+          echo "revision=${revision}" >> "${GITHUB_OUTPUT}"
 
           count="$(find "${CAP_DIR}" -type f -name '*.md' ! -name README.md | wc -l | tr -d ' ')"
           echo "count=${count}" >> "${GITHUB_OUTPUT}"
 
           echo "=== Company capability store installed ==="
-          echo "RUNTIME_CAPABILITIES_DIR=${CAP_DIR}"
+          echo "CAPABILITY_SOURCE_DIR=${CAP_DIR}"
+          echo "Revision: ${revision}"
           echo "Capability files: ${count}"
           find "${CAP_DIR}" -type f -name '*.md' ! -name README.md | sort
 
       - name: Show Runtime Home vs capability store
         run: |
           set -euo pipefail
-          echo "ENGINEERING_RUNTIME_HOME=${ENGINEERING_RUNTIME_HOME}  (binary-seeded config/policy/specs/commands)"
-          echo "RUNTIME_CONFIG_FILE=${RUNTIME_CONFIG_FILE}"
-          echo "RUNTIME_POLICY_FILE=${RUNTIME_POLICY_FILE}"
-          echo "RUNTIME_CAPABILITIES_DIR=${RUNTIME_CAPABILITIES_DIR}  (full company store — NOT Home)"
+          echo "ENGINEERING_RUNTIME_HOME=${ENGINEERING_RUNTIME_HOME}  (no user-owned config, policy, or context; empty capability cache)"
+          test ! -e "${ENGINEERING_RUNTIME_HOME}/config.yaml"
+          test ! -e "${ENGINEERING_RUNTIME_HOME}/policy-config.yaml"
+          test ! -e "${ENGINEERING_RUNTIME_HOME}/context.yaml"
+          test -d "${ENGINEERING_RUNTIME_HOME}/capabilities"
+          test -z "$(find "${ENGINEERING_RUNTIME_HOME}/capabilities" -mindepth 1 -print -quit)"
+          echo "CAPABILITY_SOURCE_DIR=${CAPABILITY_SOURCE_DIR}  (checked-out source — NOT Home)"
+          echo "CAPABILITY_SOURCE_REVISION=${{ steps.caps.outputs.revision }}"
           echo "--- runtime-home ---"
           ls -la "${ENGINEERING_RUNTIME_HOME}"
           echo "--- capabilities store (top) ---"
-          ls -la "${RUNTIME_CAPABILITIES_DIR}"
+          ls -la "${CAPABILITY_SOURCE_DIR}"
 
       - name: Validate ALL capabilities in the store
         run: |
           set -euo pipefail
-          # Resolve by name relative to RUNTIME_CAPABILITIES_DIR
+          # Validate each exact file from the checked-out source.
           failed=0
           checked=0
           while IFS= read -r rel; do
-            name="${rel%.md}"
-            echo "==> validate ${name}"
-            if ! runtime capability validate "${name}"; then
-              echo "::error::validate failed: ${name}"
+            path="${CAPABILITY_SOURCE_DIR}/${rel}"
+            echo "==> validate ${path}"
+            if ! runtime capability validate "${path}"; then
+              echo "::error::validate failed: ${path}"
               failed=$((failed + 1))
             fi
             checked=$((checked + 1))
           done < <(
-            cd "${RUNTIME_CAPABILITIES_DIR}"
+            cd "${CAPABILITY_SOURCE_DIR}"
             find . -type f -name '*.md' ! -name README.md | sed 's|^\./||' | sort
           )
           echo "Validated ${checked} capability(ies); failures=${failed}"
           [ "${failed}" -eq 0 ]
 
-      - name: Execute one capability by name (optional smoke)
+      - name: Execute one capability by exact path (optional smoke)
         if: env.EXECUTE_CAPABILITY != ''
         env:
           REPOSITORY: ${{ inputs.repository || github.repository }}
         run: |
           set -euo pipefail
           CAP="${EXECUTE_CAPABILITY}"
-          echo "Executing from RUNTIME_CAPABILITIES_DIR: ${CAP}"
+          CAP="${CAP%.md}"
+          CAPABILITY_PATH="${CAPABILITY_SOURCE_DIR}/${CAP}.md"
+          test -f "${CAPABILITY_PATH}"
+          echo "Executing ${CAPABILITY_PATH} from revision ${{ steps.caps.outputs.revision }}"
 
           case "${CAP}" in
             github/*)
@@ -149,7 +158,7 @@ jobs:
               ;;
           esac
 
-          runtime --output json capability execute "${CAP}" "${extra[@]}"
+          runtime --output json capability execute "${CAPABILITY_PATH}" "${extra[@]}"
 
           case "${CAP}" in
             github/*)

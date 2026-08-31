@@ -21,8 +21,6 @@ permissions:
 
 env:
   ENGINEERING_RUNTIME_HOME: ${{ github.workspace }}/runtime-home
-  RUNTIME_CONFIG_FILE: ${{ github.workspace }}/runtime-home/config.yaml
-  RUNTIME_POLICY_FILE: ${{ github.workspace }}/runtime-home/policy-config.yaml
   ENGINEERING_RUNTIME_CONSUMER: ci
   RUNTIME_GITHUB_TOKEN: ${{ secrets.RUNTIME_GITHUB_TOKEN }}
 
@@ -34,23 +32,25 @@ jobs:
 
       - name: Setup Engineering Runtime
         uses: ./.github/actions/setup-runtime
-        with:
-          runtime_github_token: ${{ secrets.RUNTIME_GITHUB_TOKEN }}
-          github_organization: ${{ vars.GITHUB_ORG || github.repository_owner }}
+
+      - name: Setup public capability store
+        id: capabilities
+        uses: ./.github/actions/setup-capabilities
 
       - name: Execute github-branch-protection-audit
         env:
           RUNTIME_GITHUB_TOKEN: ${{ secrets.RUNTIME_GITHUB_TOKEN }}
+          CAPABILITY_PATH: ${{ steps.capabilities.outputs.directory }}/github/github-branch-protection-audit.md
           REPOSITORY: ${{ inputs.repository || github.repository }}
           BRANCH: ${{ inputs.branch || 'main' }}
         run: |
           set -euo pipefail
           runtime auth login github
-          runtime capability validate github/github-branch-protection-audit
+          runtime capability validate "${CAPABILITY_PATH}"
           # 404 from GitHub when unprotected is itself the audit signal —
           # keep the job green so a scheduled audit still publishes evidence.
           set +e
-          runtime --output json capability execute github/github-branch-protection-audit \
+          runtime --output json capability execute "${CAPABILITY_PATH}" \
             --input "repository=${REPOSITORY}" \
             --input "branch=${BRANCH}"
           set -e

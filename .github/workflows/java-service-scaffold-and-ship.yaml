@@ -7,10 +7,10 @@ name: Java service scaffold → ship → dispatch CI
 #   LLM in the loop, so no AI cost. Samples never vendors this capability.
 #
 # Registry path (same seam as capabilities-from-registry.yaml):
-#   1. Install runtime + bootstrap runtime-home/ (binary owns config/policy)
+#   1. Install runtime + bootstrap runtime-home/ (binary owns executable defaults)
 #   2. Clone the FULL Capability Registry repo at latest ref (default: main tip)
-#   3. Set RUNTIME_CAPABILITIES_DIR → <clone>/capabilities
-#   4. Resolve + execute by name: github/java-service-scaffold-and-ship
+#   3. Capture <clone>/capabilities plus the checked-out commit SHA
+#   4. Execute github/java-service-scaffold-and-ship by exact file path
 #   5. Create a fresh empty GitHub repo (capability is not idempotent)
 #   6. Configure git identity + token credentials (Command Engine does not
 #      inject RUNTIME_GITHUB_TOKEN into bare `git`; see capability docs)
@@ -62,8 +62,6 @@ permissions:
 
 env:
   ENGINEERING_RUNTIME_HOME: ${{ github.workspace }}/runtime-home
-  RUNTIME_CONFIG_FILE: ${{ github.workspace }}/runtime-home/config.yaml
-  RUNTIME_POLICY_FILE: ${{ github.workspace }}/runtime-home/policy-config.yaml
   ENGINEERING_RUNTIME_CONSUMER: ci
   RUNTIME_GITHUB_TOKEN: ${{ secrets.RUNTIME_GITHUB_TOKEN }}
   SERVICE_NAME: ${{ inputs.service_name }}
@@ -72,7 +70,7 @@ env:
   PRIVATE_REPO: ${{ inputs.private_repo }}
   CAPABILITIES_REPO: ${{ inputs.capabilities_repo }}
   CAPABILITIES_REF: ${{ inputs.capabilities_ref }}
-  # Resolve by registry name only — never a vendored examples/ path
+  # Relative path inside the checked-out source — never a vendored examples/ path
   EXECUTE_CAPABILITY: github/java-service-scaffold-and-ship
 
 jobs:
@@ -84,9 +82,6 @@ jobs:
 
       - name: Setup Engineering Runtime
         uses: ./.github/actions/setup-runtime
-        with:
-          runtime_github_token: ${{ secrets.RUNTIME_GITHUB_TOKEN }}
-          github_organization: ${{ vars.GITHUB_ORG || github.repository_owner }}
 
       - name: Clone latest Capability Registry (full store)
         uses: actions/checkout@v4
@@ -98,7 +93,7 @@ jobs:
           fetch-depth: 1
           token: ${{ secrets.RUNTIME_GITHUB_TOKEN }}
 
-      - name: Install registry → RUNTIME_CAPABILITIES_DIR + pin SHA used
+      - name: Resolve registry directory and pin SHA used
         id: registry
         run: |
           set -euo pipefail
@@ -119,11 +114,13 @@ jobs:
           SHORT_SHA="$(git -C "${REGISTRY_ROOT}" rev-parse --short HEAD)"
           count="$(find "${CAP_DIR}" -type f -name '*.md' ! -name README.md | wc -l | tr -d ' ')"
 
-          # Persist for every later step — same seam as capabilities-from-registry.yaml
-          echo "RUNTIME_CAPABILITIES_DIR=${CAP_DIR}" >> "${GITHUB_ENV}"
+          # Persist a workflow-local path without changing Runtime's implicit
+          # compatibility-cache location or provenance label.
+          echo "CAPABILITY_SOURCE_DIR=${CAP_DIR}" >> "${GITHUB_ENV}"
 
           echo "sha=${SHA}" >> "${GITHUB_OUTPUT}"
           echo "short_sha=${SHORT_SHA}" >> "${GITHUB_OUTPUT}"
+          echo "directory=${CAP_DIR}" >> "${GITHUB_OUTPUT}"
           echo "count=${count}" >> "${GITHUB_OUTPUT}"
 
           echo "=== Capability Registry installed (latest ${CAPABILITIES_REF}) ==="
@@ -131,7 +128,7 @@ jobs:
           echo "sha:      ${SHA}"
           echo "dir:      ${CAP_DIR}"
           echo "files:    ${count}"
-          echo "execute:  ${EXECUTE_CAPABILITY}  (by name from registry — not samples/examples)"
+          echo "execute:  ${CAP_DIR}/${EXECUTE_CAPABILITY}.md  (exact source path)"
           echo "source:   https://github.com/${CAPABILITIES_REPO}/blob/${SHA}/capabilities/github/java-service-scaffold-and-ship.md"
 
       - name: Resolve fresh target repository name
@@ -159,8 +156,8 @@ jobs:
           echo "repository=${REPO}" >> "${GITHUB_OUTPUT}"
           echo "Creating fresh empty repo: ${REPO} (private=${PRIVATE_REPO})"
 
-          # Also from the registry (by name)
-          runtime --output json capability execute github/github-repositories-create \
+          # Also from the same immutable checked-out registry revision.
+          runtime --output json capability execute "${CAPABILITY_SOURCE_DIR}/github/github-repositories-create.md" \
             --input "name=${{ steps.target.outputs.repo_name }}" \
             --input "private=${PRIVATE_REPO}" \
             --input "description=CI demo: Java service from Capability Registry@${{ steps.registry.outputs.short_sha }} (no AI in this run)"
@@ -180,12 +177,13 @@ jobs:
           chmod 600 "${HOME}/.git-credentials"
           echo "Git credential helper configured for github.com"
 
-      - name: Validate latest registry capability by name
+      - name: Validate latest registry capability by exact path
         run: |
           set -euo pipefail
-          echo "Validating ${EXECUTE_CAPABILITY} from RUNTIME_CAPABILITIES_DIR=${RUNTIME_CAPABILITIES_DIR}"
+          CAPABILITY_PATH="${CAPABILITY_SOURCE_DIR}/${EXECUTE_CAPABILITY}.md"
+          echo "Validating ${CAPABILITY_PATH}"
           echo "Registry SHA: ${{ steps.registry.outputs.sha }}"
-          runtime capability validate "${EXECUTE_CAPABILITY}"
+          runtime capability validate "${CAPABILITY_PATH}"
 
       - name: Execute latest registry capability (runtime only — no AI)
         id: execute
@@ -204,7 +202,7 @@ jobs:
           echo "workdir:     ${WORKDIR}"
           echo "service:     ${SERVICE_NAME}"
 
-          runtime --output json capability execute "${EXECUTE_CAPABILITY}" \
+          runtime --output json capability execute "${CAPABILITY_SOURCE_DIR}/${EXECUTE_CAPABILITY}.md" \
             --input "repository=${TARGET_REPO}" \
             --input "workdir=${WORKDIR}" \
             --input "service_name=${SERVICE_NAME}" \

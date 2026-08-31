@@ -1,9 +1,8 @@
 name: Runtime CI
 
-# Smoke test: install the latest Engineering Runtime release, bootstrap a
-# throwaway Runtime Home (config/policy/context/commands come from the
-# binary), validate the capabilities it seeded, then exercise auth + a few
-# context-free github commands and print the audit trail.
+# Smoke test: install the latest public Engineering Runtime release, bootstrap
+# an empty throwaway Runtime Home, install a separate capability store, then
+# exercise auth-free and GitHub operations and print the audit trail.
 # See README.md for required secrets.
 
 on:
@@ -18,8 +17,6 @@ permissions:
 
 env:
   ENGINEERING_RUNTIME_HOME: ${{ github.workspace }}/runtime-home
-  RUNTIME_CONFIG_FILE: ${{ github.workspace }}/runtime-home/config.yaml
-  RUNTIME_POLICY_FILE: ${{ github.workspace }}/runtime-home/policy-config.yaml
   ENGINEERING_RUNTIME_CONSUMER: ci
   RUNTIME_GITHUB_TOKEN: ${{ secrets.RUNTIME_GITHUB_TOKEN }}
 
@@ -32,26 +29,38 @@ jobs:
 
       - name: Setup Engineering Runtime
         uses: ./.github/actions/setup-runtime
-        with:
-          runtime_github_token: ${{ secrets.RUNTIME_GITHUB_TOKEN }}
-          github_organization: ${{ vars.GITHUB_ORG || github.repository_owner }}
 
-      - name: Config diagnostics
-        run: runtime config validate
+      - name: Verify bootstrap kept Runtime Home user-owned content empty
+        run: |
+          set -euo pipefail
+          test ! -e "${ENGINEERING_RUNTIME_HOME}/config.yaml"
+          test ! -e "${ENGINEERING_RUNTIME_HOME}/policy-config.yaml"
+          test ! -e "${ENGINEERING_RUNTIME_HOME}/context.yaml"
+          test -d "${ENGINEERING_RUNTIME_HOME}/capabilities"
+          test -z "$(find "${ENGINEERING_RUNTIME_HOME}/capabilities" -mindepth 1 -print -quit)"
+          runtime capability list | grep -F "No capabilities resolved."
 
-      - name: Validate every capability bootstrap seeded from the binary
+      - name: Setup public capability store
+        id: capabilities
+        uses: ./.github/actions/setup-capabilities
+
+      - name: Validate every capability in the external store
+        env:
+          CAPABILITY_SOURCE_DIR: ${{ steps.capabilities.outputs.directory }}
         run: |
           set -euo pipefail
           shopt -s nullglob globstar
-          for f in "${ENGINEERING_RUNTIME_HOME}"/capabilities/**/*.md; do
+          for f in "${CAPABILITY_SOURCE_DIR}"/**/*.md; do
             [ "$(basename "$f")" = README.md ] && continue
             echo "==> validate $f"
             runtime capability validate "$f"
           done
 
       - name: Auth-free capability execute (files notes-roundtrip)
+        env:
+          CAPABILITY_SOURCE_DIR: ${{ steps.capabilities.outputs.directory }}
         run: |
-          runtime capability execute files/notes-roundtrip \
+          runtime capability execute "${CAPABILITY_SOURCE_DIR}/files/notes-roundtrip.md" \
             --input path=./notes.txt \
             --input message="hello from runtime-ci"
 

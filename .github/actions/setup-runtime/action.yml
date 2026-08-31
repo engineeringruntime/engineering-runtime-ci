@@ -1,7 +1,6 @@
 name: Setup Engineering Runtime
 description: >
-  Download an Engineering Runtime binary release from
-  kishore-gutta/engineering-runtime-releases, put it on PATH, bootstrap a
+  Install a public Engineering Runtime binary release, put it on PATH, bootstrap a
   throwaway Runtime Home, and export the GitHub organization for steps that
   need one.
 
@@ -20,13 +19,13 @@ inputs:
     default: ""
   runtime_github_token:
     description: >
-      secrets.RUNTIME_GITHUB_TOKEN — used as GH_TOKEN for
-      `gh release download` from kishore-gutta/engineering-runtime-releases.
-      Must have contents:read on that repo while it is private.
-    required: true
+      Deprecated compatibility input. Public runtime installation requires no
+      credential; pass RUNTIME_GITHUB_TOKEN only to later provider operations.
+    required: false
+    default: ""
   version:
     description: >
-      Release tag to install (e.g. v0.4.0). Empty = latest non-draft release.
+      Release tag to install (e.g. v0.6.0). Empty = latest public release.
     required: false
     default: ""
 
@@ -41,54 +40,14 @@ runs:
     - name: Install Engineering Runtime
       shell: bash
       env:
-        # gh authenticates release downloads via GH_TOKEN. Always the
-        # runtime's RUNTIME_GITHUB_TOKEN secret — never github.token from
-        # the ci repo (cannot see private -releases).
-        GH_TOKEN: ${{ inputs.runtime_github_token }}
-        RUNTIME_GITHUB_TOKEN: ${{ inputs.runtime_github_token }}
-        RUNTIME_RELEASES_REPO: kishore-gutta/engineering-runtime-releases
-        RUNTIME_VERSION: ${{ inputs.version }}
+        VERSION: ${{ inputs.version }}
+        INSTALL_DIR: ${{ runner.temp }}/engineering-runtime/bin
       run: |
         set -euo pipefail
-        mkdir -p runtime-install
-        cd runtime-install
-
-        if [ -z "${RUNTIME_GITHUB_TOKEN}" ]; then
-          echo "::error::RUNTIME_GITHUB_TOKEN is empty — set the ci repo secret and pass it as runtime_github_token." >&2
-          exit 1
-        fi
-
-        if ! gh release list --repo "${RUNTIME_RELEASES_REPO}" -L 1 | grep -q .; then
-          cat <<'EOF' >&2
-        ::error::No readable releases in kishore-gutta/engineering-runtime-releases.
-
-        Common causes:
-          1. Repo is private and RUNTIME_GITHUB_TOKEN lacks contents:read on it
-          2. No release published yet (cut one from engineering-runtime)
-        EOF
-          exit 1
-        fi
-
-        download_args=(--repo "${RUNTIME_RELEASES_REPO}" --pattern "*-linux-amd64.tar.gz" --pattern "SHA256SUMS.txt" --clobber)
-        if [ -n "${RUNTIME_VERSION}" ]; then
-          download_args+=("${RUNTIME_VERSION}")
-          echo "Downloading release ${RUNTIME_VERSION} with RUNTIME_GITHUB_TOKEN"
-        else
-          echo "Downloading latest release with RUNTIME_GITHUB_TOKEN"
-        fi
-
-        if ! gh release download "${download_args[@]}"; then
-          echo "::error::gh release download failed for ${RUNTIME_RELEASES_REPO} (version='${RUNTIME_VERSION:-latest}'). Check RUNTIME_GITHUB_TOKEN access." >&2
-          exit 1
-        fi
-
-        ARCHIVE="$(ls engineering-runtime-*-linux-amd64.tar.gz)"
-        echo "Resolved release archive: ${ARCHIVE}"
-        sha256sum -c <(grep "${ARCHIVE}" SHA256SUMS.txt)
-
-        tar -xzf "${ARCHIVE}"
-        PKG_DIR="$(basename "${ARCHIVE}" .tar.gz)"
-        echo "${PWD}/${PKG_DIR}" >> "${GITHUB_PATH}"
+        curl -fsSL \
+          https://raw.githubusercontent.com/kishore-gutta/engineering-runtime-releases/main/install.sh \
+          | sh
+        echo "${INSTALL_DIR}" >> "${GITHUB_PATH}"
 
     - name: Verify install
       shell: bash
@@ -97,10 +56,28 @@ runs:
     - name: Bootstrap Runtime Home
       shell: bash
       env:
-        # Force Home-local capabilities. Clearing this avoids a job-level
-        # RUNTIME_CAPABILITIES_DIR accidentally receiving bootstrap seeds.
+        # Keep the implicit, non-authoritative capability cache inside this
+        # disposable Home even if the caller has a job-level compatibility
+        # override. Bootstrap creates the cache directory but seeds no files.
         RUNTIME_CAPABILITIES_DIR: ""
       run: runtime bootstrap
+
+    - name: Verify fresh Runtime Home ownership
+      shell: bash
+      run: |
+        set -euo pipefail
+        for path in config.yaml policy-config.yaml context.yaml; do
+          if [ -e "${ENGINEERING_RUNTIME_HOME}/${path}" ]; then
+            echo "::error::runtime bootstrap created user-owned ${ENGINEERING_RUNTIME_HOME}/${path}" >&2
+            exit 1
+          fi
+        done
+        test -d "${ENGINEERING_RUNTIME_HOME}/capabilities"
+        if find "${ENGINEERING_RUNTIME_HOME}/capabilities" -mindepth 1 -print -quit | grep -q .; then
+          echo "::error::runtime bootstrap populated the non-authoritative capability cache" >&2
+          exit 1
+        fi
+        runtime config validate
 
     - name: Export the GitHub organization
       if: inputs.github_organization != ''

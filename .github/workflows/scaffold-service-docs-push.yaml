@@ -2,9 +2,9 @@ name: Scaffold service docs → push to repo
 
 # Demo / CI path:
 #   1. Install runtime + bootstrap runtime-home/
-#   2. Clone company capabilities store → RUNTIME_CAPABILITIES_DIR
+#   2. Clone a capability source and capture its exact commit SHA
 #   3. Clone target repo (default: kishore-gutta/my-repo)
-#   4. mkdir scaffold folder; run files/scaffold-service-docs by name
+#   4. mkdir scaffold folder; run files/scaffold-service-docs by exact path
 #   5. Commit README.md / CHANGELOG.md / NOTES.md and push
 #
 # Capability:
@@ -43,8 +43,6 @@ permissions:
 
 env:
   ENGINEERING_RUNTIME_HOME: ${{ github.workspace }}/runtime-home
-  RUNTIME_CONFIG_FILE: ${{ github.workspace }}/runtime-home/config.yaml
-  RUNTIME_POLICY_FILE: ${{ github.workspace }}/runtime-home/policy-config.yaml
   ENGINEERING_RUNTIME_CONSUMER: ci
   RUNTIME_GITHUB_TOKEN: ${{ secrets.RUNTIME_GITHUB_TOKEN }}
   TARGET_REPO: ${{ inputs.target_repo }}
@@ -63,25 +61,14 @@ jobs:
 
       - name: Setup Engineering Runtime
         uses: ./.github/actions/setup-runtime
-        with:
-          runtime_github_token: ${{ secrets.RUNTIME_GITHUB_TOKEN }}
-          github_organization: ${{ vars.GITHUB_ORG || github.repository_owner }}
 
-      - name: Clone company capabilities store
-        uses: actions/checkout@v4
+      - name: Setup capability source
+        id: capabilities
+        uses: ./.github/actions/setup-capabilities
         with:
           repository: ${{ env.CAPABILITIES_REPO }}
           ref: ${{ env.CAPABILITIES_REF }}
-          path: engineering-runtime-capabilities
           token: ${{ secrets.RUNTIME_GITHUB_TOKEN }}
-
-      - name: Set RUNTIME_CAPABILITIES_DIR
-        run: |
-          set -euo pipefail
-          CAP_DIR="${GITHUB_WORKSPACE}/engineering-runtime-capabilities/capabilities"
-          test -d "${CAP_DIR}"
-          echo "RUNTIME_CAPABILITIES_DIR=${CAP_DIR}" >> "${GITHUB_ENV}"
-          echo "Capabilities resolve from: ${CAP_DIR}"
 
       - name: Clone target repo
         uses: actions/checkout@v4
@@ -98,13 +85,18 @@ jobs:
           echo "Scaffolding into: target-repo/${SCAFFOLD_DIR}"
 
       - name: Validate files/scaffold-service-docs
-        run: runtime capability validate files/scaffold-service-docs
+        env:
+          CAPABILITY_PATH: ${{ steps.capabilities.outputs.directory }}/files/scaffold-service-docs.md
+        run: runtime capability validate "${CAPABILITY_PATH}"
 
       - name: Execute files/scaffold-service-docs
+        env:
+          CAPABILITY_PATH: ${{ steps.capabilities.outputs.directory }}/files/scaffold-service-docs.md
         run: |
           set -euo pipefail
           DIR="${GITHUB_WORKSPACE}/target-repo/${SCAFFOLD_DIR}"
-          runtime --output json capability execute files/scaffold-service-docs \
+          echo "Capability source revision: ${{ steps.capabilities.outputs.revision }}"
+          runtime --output json capability execute "${CAPABILITY_PATH}" \
             --input "dir=${DIR}" \
             --input "readme_content=# ${SERVICE_NAME}" \
             --input "changelog_content=## Unreleased" \

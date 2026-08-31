@@ -23,8 +23,6 @@ permissions:
 
 env:
   ENGINEERING_RUNTIME_HOME: ${{ github.workspace }}/runtime-home
-  RUNTIME_CONFIG_FILE: ${{ github.workspace }}/runtime-home/config.yaml
-  RUNTIME_POLICY_FILE: ${{ github.workspace }}/runtime-home/policy-config.yaml
   ENGINEERING_RUNTIME_CONSUMER: ci
   RUNTIME_GITHUB_TOKEN: ${{ secrets.RUNTIME_GITHUB_TOKEN }}
 
@@ -36,13 +34,15 @@ jobs:
 
       - name: Setup Engineering Runtime
         uses: ./.github/actions/setup-runtime
-        with:
-          runtime_github_token: ${{ secrets.RUNTIME_GITHUB_TOKEN }}
-          github_organization: ${{ vars.GITHUB_ORG || github.repository_owner }}
+
+      - name: Setup public capability store
+        id: capabilities
+        uses: ./.github/actions/setup-capabilities
 
       - name: Execute github-review-queue
         env:
           RUNTIME_GITHUB_TOKEN: ${{ secrets.RUNTIME_GITHUB_TOKEN }}
+          CAPABILITY_PATH: ${{ steps.capabilities.outputs.directory }}/github/github-review-queue.md
           REPOSITORY: ${{ inputs.repository || github.repository }}
           STALE_BEFORE: ${{ inputs.stale_before }}
         run: |
@@ -52,8 +52,8 @@ jobs:
           fi
           echo "repository=${REPOSITORY} stale_before=${STALE_BEFORE}"
           runtime auth login github
-          runtime capability validate github/github-review-queue
-          runtime --output json capability execute github/github-review-queue \
+          runtime capability validate "${CAPABILITY_PATH}"
+          runtime --output json capability execute "${CAPABILITY_PATH}" \
             --input "repository=${REPOSITORY}" \
             --input "stale_before=${STALE_BEFORE}"
           runtime auth logout github

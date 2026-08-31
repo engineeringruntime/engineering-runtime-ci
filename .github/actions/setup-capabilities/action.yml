@@ -1,0 +1,57 @@
+name: Setup Engineering Runtime capabilities
+description: >
+  Checkout a capability source and expose its exact directory and resolved
+  commit SHA. Callers validate and execute files by the returned path; this
+  action does not relabel the checkout as Runtime Home's compatibility cache.
+
+inputs:
+  repository:
+    description: GitHub repository containing the capability store.
+    required: false
+    default: kishore-gutta/engineering-runtime-capabilities
+  ref:
+    description: Branch, tag, or SHA to checkout.
+    required: false
+    default: main
+  token:
+    description: Optional token for a private capability store.
+    required: false
+    default: ""
+
+outputs:
+  directory:
+    description: Absolute path to the checked-out capabilities directory.
+    value: ${{ steps.store.outputs.directory }}
+  revision:
+    description: Checked-out capability-store commit SHA.
+    value: ${{ steps.store.outputs.revision }}
+
+runs:
+  using: composite
+  steps:
+    - name: Checkout capability store
+      uses: actions/checkout@v4
+      with:
+        repository: ${{ inputs.repository }}
+        ref: ${{ inputs.ref }}
+        path: engineering-runtime-capabilities
+        token: ${{ inputs.token || github.token }}
+
+    - name: Resolve capability source identity
+      id: store
+      shell: bash
+      run: |
+        set -euo pipefail
+        root="${GITHUB_WORKSPACE}/engineering-runtime-capabilities"
+        directory="${root}/capabilities"
+        if [ ! -d "${directory}" ]; then
+          echo "::error::Capability store ${INPUT_REPOSITORY} has no capabilities/ directory." >&2
+          exit 1
+        fi
+
+        revision="$(git -C "${root}" rev-parse HEAD)"
+        echo "directory=${directory}" >> "${GITHUB_OUTPUT}"
+        echo "revision=${revision}" >> "${GITHUB_OUTPUT}"
+        echo "Using ${INPUT_REPOSITORY}@${revision}"
+      env:
+        INPUT_REPOSITORY: ${{ inputs.repository }}

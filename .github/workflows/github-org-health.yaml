@@ -24,8 +24,6 @@ permissions:
 
 env:
   ENGINEERING_RUNTIME_HOME: ${{ github.workspace }}/runtime-home
-  RUNTIME_CONFIG_FILE: ${{ github.workspace }}/runtime-home/config.yaml
-  RUNTIME_POLICY_FILE: ${{ github.workspace }}/runtime-home/policy-config.yaml
   ENGINEERING_RUNTIME_CONSUMER: ci
   RUNTIME_GITHUB_TOKEN: ${{ secrets.RUNTIME_GITHUB_TOKEN }}
 
@@ -41,9 +39,7 @@ jobs:
 
       - name: Setup Engineering Runtime
         uses: ./.github/actions/setup-runtime
-        with:
-          runtime_github_token: ${{ secrets.RUNTIME_GITHUB_TOKEN }}
-          # Deliberately no github_organization — that is what we are resolving.
+        # Deliberately no github_organization — that is what we are resolving.
 
       - name: Ask the runtime which orgs this token belongs to
         id: pick
@@ -92,17 +88,21 @@ jobs:
       - name: Setup Engineering Runtime
         uses: ./.github/actions/setup-runtime
         with:
-          runtime_github_token: ${{ secrets.RUNTIME_GITHUB_TOKEN }}
           github_organization: ${{ needs.resolve.outputs.organization }}
+
+      - name: Setup public capability store
+        id: capabilities
+        uses: ./.github/actions/setup-capabilities
 
       - name: Execute github-org-health-check
         env:
           RUNTIME_GITHUB_TOKEN: ${{ secrets.RUNTIME_GITHUB_TOKEN }}
+          CAPABILITY_PATH: ${{ steps.capabilities.outputs.directory }}/github/github-org-health-check.md
         run: |
           set -euo pipefail
           runtime auth login github
-          runtime capability validate github/github-org-health-check
-          runtime --output json capability execute github/github-org-health-check \
+          runtime capability validate "${CAPABILITY_PATH}"
+          runtime --output json capability execute "${CAPABILITY_PATH}" \
             --input "organization=${RUNTIME_GITHUB_ORG}"
           runtime auth logout github
           runtime audit tail -n 20
