@@ -45,7 +45,7 @@ runs:
       run: |
         set -euo pipefail
         curl -fsSL \
-          https://raw.githubusercontent.com/kishore-gutta/engineering-runtime-releases/main/install.sh \
+          https://raw.githubusercontent.com/engineeringruntime/engineering-runtime-releases/main/install.sh \
           | sh
         echo "${INSTALL_DIR}" >> "${GITHUB_PATH}"
 

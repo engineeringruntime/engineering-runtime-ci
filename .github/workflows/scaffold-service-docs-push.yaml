@@ -8,7 +8,7 @@ name: Scaffold service docs → push to repo
 #   5. Commit README.md / CHANGELOG.md / NOTES.md and push
 #
 # Capability:
-#   https://github.com/kishore-gutta/engineering-runtime-capabilities/blob/main/capabilities/files/scaffold-service-docs.md
+#   https://github.com/engineeringruntime/engineering-runtime-capabilities/blob/main/capabilities/files/scaffold-service-docs.md
 
 on:
   workflow_dispatch:
@@ -32,7 +32,7 @@ on:
       capabilities_repo:
         description: Company capabilities store (owner/name)
         required: true
-        default: kishore-gutta/engineering-runtime-capabilities
+        default: engineeringruntime/engineering-runtime-capabilities
       capabilities_ref:
         description: Capabilities store ref
         required: true

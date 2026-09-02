@@ -15,7 +15,7 @@ on:
       capabilities_repo:
         description: GitHub repo that stores ALL company capabilities (owner/name)
         required: true
-        default: kishore-gutta/engineering-runtime-capabilities
+        default: engineeringruntime/engineering-runtime-capabilities
       capabilities_ref:
         description: Branch, tag, or SHA to checkout
         required: true
@@ -39,7 +39,7 @@ env:
   ENGINEERING_RUNTIME_HOME: ${{ github.workspace }}/runtime-home
   ENGINEERING_RUNTIME_CONSUMER: ci
   RUNTIME_GITHUB_TOKEN: ${{ secrets.RUNTIME_GITHUB_TOKEN }}
-  CAPABILITIES_REPO: ${{ inputs.capabilities_repo || 'kishore-gutta/engineering-runtime-capabilities' }}
+  CAPABILITIES_REPO: ${{ inputs.capabilities_repo || 'engineeringruntime/engineering-runtime-capabilities' }}
   CAPABILITIES_REF: ${{ inputs.capabilities_ref || 'main' }}
   EXECUTE_CAPABILITY: ${{ inputs.execute_capability || 'files/notes-roundtrip' }}
 

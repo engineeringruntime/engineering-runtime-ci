@@ -2,7 +2,7 @@ name: Java service scaffold → ship → dispatch CI
 
 # Demo thesis:
 #   AI authors a capability once into the company Capability Registry
-#   (today: kishore-gutta/engineering-runtime-capabilities). CI re-runs
+#   (today: engineeringruntime/engineering-runtime-capabilities). CI re-runs
 #   the *latest* published copy via `runtime capability execute` — no
 #   LLM in the loop, so no AI cost. Samples never vendors this capability.
 #
@@ -17,7 +17,7 @@ name: Java service scaffold → ship → dispatch CI
 #   7. Audit trail proves every step went through the runtime
 #
 # Capability (registry):
-#   https://github.com/kishore-gutta/engineering-runtime-capabilities/blob/main/capabilities/github/java-service-scaffold-and-ship.md
+#   https://github.com/engineeringruntime/engineering-runtime-capabilities/blob/main/capabilities/github/java-service-scaffold-and-ship.md
 #
 # Dispatch-only on purpose (creates a real repo + pushes + triggers Actions).
 
@@ -49,7 +49,7 @@ on:
       capabilities_repo:
         description: Capability Registry repo (owner/name) — full store, not one file
         required: true
-        default: kishore-gutta/engineering-runtime-capabilities
+        default: engineeringruntime/engineering-runtime-capabilities
       capabilities_ref:
         description: >
           Registry ref to install. Default "main" = latest published tip.

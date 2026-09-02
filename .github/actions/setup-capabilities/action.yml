@@ -8,7 +8,7 @@ inputs:
   repository:
     description: GitHub repository containing the capability store.
     required: false
-    default: kishore-gutta/engineering-runtime-capabilities
+    default: engineeringruntime/engineering-runtime-capabilities
   ref:
     description: Branch, tag, or SHA to checkout.
     required: false
