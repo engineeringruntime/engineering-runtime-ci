@@ -15,7 +15,7 @@ The shared [`setup-runtime`](.github/actions/setup-runtime/action.yml) action:
    [`engineering-runtime-releases`](https://github.com/engineeringruntime/engineering-runtime-releases);
 2. relies on the installer's archive checksum verification;
 3. bootstraps a disposable Home; and
-4. verifies Runtime 0.6.0's fresh-Home ownership contract.
+4. verifies the released Runtime's fresh-Home ownership contract.
 
 Every workflow sets only the common runtime environment it needs:
 
