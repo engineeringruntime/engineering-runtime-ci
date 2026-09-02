@@ -8,8 +8,6 @@ name: Capabilities from registry (clone)
 #   5. Optionally execute one capability (smoke / demo)
 
 on:
-  schedule:
-    - cron: "15 6 * * 1"
   workflow_dispatch:
     inputs:
       capabilities_repo:

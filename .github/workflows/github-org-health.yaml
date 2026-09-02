@@ -10,8 +10,6 @@ name: GitHub — org health check
 # of failing red every Monday.
 
 on:
-  schedule:
-    - cron: "0 6 * * 1"
   workflow_dispatch:
     inputs:
       organization:

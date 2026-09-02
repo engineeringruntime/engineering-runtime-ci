@@ -4,8 +4,6 @@ name: GitHub — review queue
 # stale_before defaults to 30 days ago (UTC date).
 
 on:
-  schedule:
-    - cron: "0 7 * * 1-5" # weekdays 07:00 UTC
   workflow_dispatch:
     inputs:
       repository:

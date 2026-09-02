@@ -4,8 +4,6 @@ name: GitHub — repo health
 # (defaults to this repo). Read-only; needs RUNTIME_GITHUB_TOKEN + gh.
 
 on:
-  schedule:
-    - cron: "0 6 * * 1" # Mondays 06:00 UTC
   workflow_dispatch:
     inputs:
       repository:

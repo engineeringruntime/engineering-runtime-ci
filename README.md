@@ -67,16 +67,16 @@ which `runtime capability list` reports as non-authoritative.
 | Workflow | Trigger | What it runs |
 |---|---|---|
 | [`runtime-ci.yaml`](.github/workflows/runtime-ci.yaml) | push/PR/dispatch | Public install → fresh-Home assertions → external source checkout → validate all → auth-free files round trip → GitHub auth/commands → audit |
-| [`capabilities-from-registry.yaml`](.github/workflows/capabilities-from-registry.yaml) | weekly + dispatch | Clone the complete selected source → capture commit SHA → validate all exact paths → optionally execute one exact path |
+| [`capabilities-from-registry.yaml`](.github/workflows/capabilities-from-registry.yaml) | dispatch | Clone the complete selected source → capture commit SHA → validate all exact paths → optionally execute one exact path |
 | [`scaffold-service-docs-push.yaml`](.github/workflows/scaffold-service-docs-push.yaml) | dispatch | Execute `files/scaffold-service-docs.md` from the selected source and push the generated files |
 | [`java-service-scaffold-and-ship.yaml`](.github/workflows/java-service-scaffold-and-ship.yaml) | dispatch | Capture a registry revision, create a fresh repo, and execute the Java scaffold capability by exact path |
-| [`github-repo-health.yaml`](.github/workflows/github-repo-health.yaml) | weekly + dispatch | `github/github-repo-health.md` |
-| [`github-org-health.yaml`](.github/workflows/github-org-health.yaml) | weekly + dispatch | `github/github-org-health-check.md` |
-| [`github-security-posture.yaml`](.github/workflows/github-security-posture.yaml) | weekly + dispatch | `github/github-security-posture.md` |
-| [`github-review-queue.yaml`](.github/workflows/github-review-queue.yaml) | weekdays + dispatch | `github/github-review-queue.md` |
-| [`github-standards-audit.yaml`](.github/workflows/github-standards-audit.yaml) | weekly + dispatch | `github/github-repo-standards-audit.md` |
-| [`github-branch-protection-audit.yaml`](.github/workflows/github-branch-protection-audit.yaml) | weekly + dispatch | `github/github-branch-protection-audit.md` |
-| [`github-secrets-inventory.yaml`](.github/workflows/github-secrets-inventory.yaml) | monthly + dispatch | `github/github-secrets-inventory.md` |
+| [`github-repo-health.yaml`](.github/workflows/github-repo-health.yaml) | dispatch | `github/github-repo-health.md` |
+| [`github-org-health.yaml`](.github/workflows/github-org-health.yaml) | dispatch | `github/github-org-health-check.md` |
+| [`github-security-posture.yaml`](.github/workflows/github-security-posture.yaml) | dispatch | `github/github-security-posture.md` |
+| [`github-review-queue.yaml`](.github/workflows/github-review-queue.yaml) | dispatch | `github/github-review-queue.md` |
+| [`github-standards-audit.yaml`](.github/workflows/github-standards-audit.yaml) | dispatch | `github/github-repo-standards-audit.md` |
+| [`github-branch-protection-audit.yaml`](.github/workflows/github-branch-protection-audit.yaml) | dispatch | `github/github-branch-protection-audit.md` |
+| [`github-secrets-inventory.yaml`](.github/workflows/github-secrets-inventory.yaml) | dispatch | `github/github-secrets-inventory.md` |
 
 Destructive packs remain dispatch-only or local.
 

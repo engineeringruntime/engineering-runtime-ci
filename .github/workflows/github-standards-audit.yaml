@@ -3,8 +3,6 @@ name: GitHub — repo standards audit
 # Summary + community profile + topics + languages for a repository.
 
 on:
-  schedule:
-    - cron: "0 9 * * 1"
   workflow_dispatch:
     inputs:
       repository:
