@@ -12,7 +12,7 @@ The runtime binary is never built in this repository. Agent guidance lives in
 The shared [`setup-runtime`](.github/actions/setup-runtime/action.yml) action:
 
 1. runs the public installer from
-   [`engineering-runtime-releases`](https://github.com/kishore-gutta/engineering-runtime-releases);
+   [`engineering-runtime-releases`](https://github.com/engineeringruntime/engineering-runtime-releases);
 2. relies on the installer's archive checksum verification;
 3. bootstraps a disposable Home; and
 4. verifies Runtime 0.6.0's fresh-Home ownership contract.
@@ -40,7 +40,7 @@ steps.
 This repository checks in no capability Markdown. The shared
 [`setup-capabilities`](.github/actions/setup-capabilities/action.yml) action
 checks out the public
-[`engineering-runtime-capabilities`](https://github.com/kishore-gutta/engineering-runtime-capabilities)
+[`engineering-runtime-capabilities`](https://github.com/engineeringruntime/engineering-runtime-capabilities)
 source (or another selected source) and returns:
 
 - the exact `capabilities/` directory; and
