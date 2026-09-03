@@ -158,6 +158,7 @@ jobs:
       - name: "Conformance: the same operations inside a capability"
         env:
           RUNTIME_GITHUB_TOKEN: ${{ secrets.RUNTIME_GITHUB_TOKEN }}
+          CAPABILITY_SOURCE_DIR: ${{ steps.capabilities.outputs.directory }}
         # Direct invocation and a capability step do not bind identically — a
         # `binary:` step is refused until that provider's authentication is
         # enabled, while `command run` is governed by command policy instead.
