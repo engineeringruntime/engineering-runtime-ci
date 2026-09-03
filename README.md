@@ -7,6 +7,27 @@ capability sources, auth, commands, capability execution, and the audit trail.
 The runtime binary is never built in this repository. Agent guidance lives in
 [`CLAUDE.md`](./CLAUDE.md).
 
+## Role in the release cycle
+
+These workflows are the CI reference for the **current** release. Two things
+follow from that.
+
+`runtime-ci.yaml` carries the transport and engine conformance matrix — one real
+operation per transport, run twice, directly and inside a capability. It exists
+because v0.8.0 shipped the provider CLI transport unpinned and sixteen published
+capabilities were dead for a release while `go test`, a strict docs build and
+capability *validation* all stayed green. Validation parses a file; it never runs
+one.
+
+A release runs this matrix against its candidate. It cannot gate the release
+automatically — it lives in a different repository, so `needs:` cannot reach it —
+so the release operator dispatches it, and all seven rows must pass.
+
+When a release changes how Runtime is invoked in a pipeline, the workflow that
+shows it is updated in the same cycle. Where a release does not touch CI, nothing
+here is manufactured to tick a box.
+
+
 ## Runtime and Home contract
 
 The shared [`setup-runtime`](.github/actions/setup-runtime/action.yml) action:
