@@ -10,7 +10,12 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      runtime_version:
+        description: Public Runtime tag to install; empty follows latest
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -34,6 +39,8 @@ jobs:
 
       - name: Setup Engineering Runtime
         uses: ./.github/actions/setup-runtime
+        with:
+          version: ${{ inputs.runtime_version || '' }}
 
       - name: Verify bootstrap kept Runtime Home user-owned content empty
         run: |
@@ -138,6 +145,8 @@ jobs:
           runtime github run list --repo cli/cli --limit 1 > /dev/null
           runtime github pr list --repo cli/cli --limit 1 > /dev/null
           runtime github workflow list --repo cli/cli > /dev/null
+          runtime --output raw command run gh repo list --limit 1 \
+            --json nameWithOwner | jq -e 'length == 1'
 
       - name: "Conformance: File Engine"
         # Write and read are the allowed control. Delete is the denial case:
@@ -150,6 +159,15 @@ jobs:
           set -euo pipefail
           runtime files write ./conformance.txt "file engine" > /dev/null
           runtime files read ./conformance.txt | grep -qF "file engine"
+          runtime files text replace --from "file engine" --to "structured file engine" \
+            --file ./conformance.txt --expected-files 1 --expected-matches 1 \
+            --expected-per-file 1 --dry-run | grep -qF "dry-run (nothing written)"
+          runtime files read ./conformance.txt | grep -qF "file engine"
+          runtime --output json files text replace \
+            --from "file engine" --to "structured file engine" \
+            --file ./conformance.txt --expected-files 1 --expected-matches 1 \
+            --expected-per-file 1 | jq -e '.data.files[0].status == "committed"'
+          runtime files read ./conformance.txt | grep -qF "structured file engine"
 
           if runtime files delete ./conformance.txt > /dev/null 2>&1; then
             echo "::error::files delete succeeded — the policy denial for delete is gone"

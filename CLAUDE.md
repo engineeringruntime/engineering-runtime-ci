@@ -113,6 +113,8 @@ Smoke and specialized workflows should collectively cover:
 - `runtime auth status`, `login`, and `logout`;
 - curated GitHub commands plus representative API/GraphQL operations;
 - `runtime capability validate` and `execute` for auth-free files and GitHub;
+- native-output `gh.repo.list`, structured File Engine dry-run/apply, and typed
+  per-file JSON under policy-narrowed edit budgets;
 - `runtime capability list` on an empty fresh Home; and
 - `runtime audit tail`.
 

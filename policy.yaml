@@ -1,6 +1,6 @@
 # Engineering Runtime — policy for this CI pipeline
 #
-# Proven against Runtime 0.9.2 by the workflows in this repository, on this
+# Proven against Runtime 0.9.4 by the workflows in this repository, on this
 # commit. This is the more interesting of the two documents: configuration turns
 # things on, policy decides what Runtime refuses, and the refusals are the
 # product.
@@ -62,6 +62,13 @@ file_policy:
     - "."
   write_roots:
     - "."
+  # Structured edits refuse before writing when one of these narrowed limits
+  # is exceeded. The binary's compiled maxima cannot be raised by policy.
+  max_edit_files: 100
+  max_edit_batch_bytes: 8388608
+  max_edit_matches: 1000
+  max_edit_diff_bytes: 262144
+  max_edit_seconds: 20
 
 providers:
   files:
