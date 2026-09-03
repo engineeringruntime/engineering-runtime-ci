@@ -121,11 +121,23 @@ jobs:
           runtime github workflow list --repo cli/cli > /dev/null
 
       - name: "Conformance: File Engine"
+        # Write and read are the allowed control. Delete is the denial case:
+        # the shipped default policy denies files delete, so a delete that
+        # SUCCEEDS here means the safety floor has been lowered.
+        #
+        # The original version simply ran the delete and expected it to work,
+        # which could never pass against the policy this product ships.
         run: |
           set -euo pipefail
           runtime files write ./conformance.txt "file engine" > /dev/null
           runtime files read ./conformance.txt | grep -qF "file engine"
-          runtime files delete ./conformance.txt > /dev/null
+
+          if runtime files delete ./conformance.txt > /dev/null 2>&1; then
+            echo "::error::files delete succeeded — the policy denial for delete is gone"
+            exit 1
+          fi
+          echo "files delete denied, as the shipped policy requires"
+          rm -f ./conformance.txt
 
       - name: "Conformance: Command Engine, plain binary"
         run: runtime command run git --version > /dev/null
