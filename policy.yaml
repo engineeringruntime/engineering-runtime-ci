@@ -1,0 +1,71 @@
+# Engineering Runtime — policy for this CI pipeline
+#
+# Proven against Runtime 0.9.2 by the workflows in this repository, on this
+# commit. This is the more interesting of the two documents: configuration turns
+# things on, policy decides what Runtime refuses, and the refusals are the
+# product.
+#
+# Runtime reads this because the workflows set RUNTIME_POLICY_FILE. It composes
+# with the safety profile compiled into the binary, which no document can
+# disable — this narrows, it never widens.
+
+schema_version: 3
+
+# Narrowed to what these workflows actually invoke. The shipped reference allows
+# 21; a pipeline that needs three should say three, so a capability reaching for
+# a fourth is refused rather than quietly succeeding.
+allowed_binaries:
+  - git      # clone, commit and push in the scaffold workflows
+  - gh       # the CLI transport behind pr list, workflow run, run list
+  - gcloud   # read-only GCP enumeration; every gcloud change is refused anyway
+
+command_policy:
+  # Refused even if something adds them to allowed_binaries above.
+  denied_binaries:
+    - rm
+    - sudo
+    - chmod
+    - curl
+    - wget
+    - ssh
+
+  rules:
+    # Irreversible git operations. `git rm` is deliberately NOT here — it removes
+    # tracked files inside a working copy, where content stays recoverable in
+    # history, and the scaffold capability depends on that distinction.
+    git:
+      denied:
+        - push --force
+        - push -f
+        - reset --hard
+        - clean -fd
+        - filter-branch
+        - update-ref -d
+
+  # Credential helpers a parent binary may launch, by absolute path.
+  #
+  # Present and empty because these workflows need none. It is here so a reader
+  # meets the key: Runtime pins the executable it runs and gives it a bounded
+  # environment, so a tool that delegates authentication to a helper — `docker`
+  # with a registry credential helper is the usual case — cannot reach it unless
+  # the helper is named here. Absolute paths only, scoped to one parent binary,
+  # exposing only the named files. Added in Runtime 0.9.1.
+  admitted_helpers: {}
+
+# File Engine governance. Read and write are separate grants: a root in
+# read_roots permits read and list, a root in write_roots permits write, append
+# and delete, and neither implies the other.
+#
+# Scoped to the checkout. A job that writes outside its workspace is refused.
+file_policy:
+  read_roots:
+    - "."
+  write_roots:
+    - "."
+
+providers:
+  files:
+    # Demonstrated in runtime-ci.yaml: the File Engine conformance row asserts
+    # this refusal, so a delete that starts succeeding fails the build.
+    denied:
+      - delete

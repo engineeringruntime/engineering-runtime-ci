@@ -1,0 +1,38 @@
+# Engineering Runtime — configuration for this CI pipeline
+#
+# Proven against Runtime 0.9.2 by the workflows in this repository, on this
+# commit. Copy it, delete what you do not need, and keep the comments.
+#
+# This is NOT the exhaustive reference — `runtime config init config --output
+# <path>` emits that, with every key the release supports. This file is the
+# narrower and more useful thing: what a real pipeline actually sets, with the
+# keys it omits left out rather than commented into silence.
+#
+# Runtime reads this because the workflows set RUNTIME_CONFIG_FILE. Without that
+# variable Runtime uses its compiled defaults and never looks here.
+
+schema_version: 2
+
+# Which provider authentication Runtime may resolve.
+#
+# Off by default, and enabling one is not the same as granting it: the Auth
+# Engine still probes for a credential and refuses the operation when there is
+# none. `authentication.github.token_env` names the variable — never the token —
+# and defaults to RUNTIME_GITHUB_TOKEN, which is what these workflows export.
+authentication:
+  github:
+    enabled: true
+
+  # Enabled only in the workflows that read GCP state. Left false here so a
+  # pipeline that never touches GCP cannot resolve a GCP identity at all.
+  gcp:
+    enabled: false
+
+# Where capabilities are read from, and written to.
+#
+# Left empty on purpose: the setup-capabilities action clones the public store
+# and exports RUNTIME_CAPABILITIES_DIR, so each job resolves exactly the
+# revision it checked out and its evidence names that commit. A long-lived
+# machine would name the directory here instead.
+capabilities:
+  sources: []

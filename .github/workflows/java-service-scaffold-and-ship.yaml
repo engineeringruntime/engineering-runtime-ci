@@ -10,14 +10,14 @@ name: Java service scaffold → ship → dispatch CI
 #   1. Install runtime + bootstrap runtime-home/ (binary owns executable defaults)
 #   2. Clone the FULL Capability Registry repo at latest ref (default: main tip)
 #   3. Capture <clone>/capabilities plus the checked-out commit SHA
-#   4. Execute github/java-service-scaffold-and-ship by exact file path
+#   4. Execute platform/java-service-scaffold-and-ship by exact file path
 #   5. Create a fresh empty GitHub repo (capability is not idempotent)
 #   6. Configure git identity + token credentials (Command Engine does not
 #      inject RUNTIME_GITHUB_TOKEN into bare `git`; see capability docs)
 #   7. Audit trail proves every step went through the runtime
 #
 # Capability (registry):
-#   https://github.com/engineeringruntime/engineering-runtime-capabilities/blob/main/capabilities/github/java-service-scaffold-and-ship.md
+#   https://github.com/engineeringruntime/engineering-runtime-capabilities/blob/main/capabilities/platform/java-service-scaffold-and-ship.md
 #
 # Dispatch-only on purpose (creates a real repo + pushes + triggers Actions).
 
@@ -62,6 +62,11 @@ permissions:
 
 env:
   ENGINEERING_RUNTIME_HOME: ${{ github.workspace }}/runtime-home
+  # Governance comes from the two documents at the root of this repository, not
+  # from the binary's compiled defaults. They are the template a reader copies,
+  # and CI proves them on the same commit.
+  RUNTIME_CONFIG_FILE: ${{ github.workspace }}/config.yaml
+  RUNTIME_POLICY_FILE: ${{ github.workspace }}/policy.yaml
   ENGINEERING_RUNTIME_CONSUMER: ci
   RUNTIME_GITHUB_TOKEN: ${{ secrets.RUNTIME_GITHUB_TOKEN }}
   SERVICE_NAME: ${{ inputs.service_name }}
@@ -71,7 +76,7 @@ env:
   CAPABILITIES_REPO: ${{ inputs.capabilities_repo }}
   CAPABILITIES_REF: ${{ inputs.capabilities_ref }}
   # Relative path inside the checked-out source — never a vendored examples/ path
-  EXECUTE_CAPABILITY: github/java-service-scaffold-and-ship
+  EXECUTE_CAPABILITY: platform/java-service-scaffold-and-ship
 
 jobs:
   scaffold-ship-dispatch:
@@ -104,8 +109,8 @@ jobs:
             ls -la "${REGISTRY_ROOT}" || true
             exit 1
           fi
-          if [ ! -f "${CAP_DIR}/github/java-service-scaffold-and-ship.md" ]; then
-            echo "::error::Registry is missing github/java-service-scaffold-and-ship — publish it to ${CAPABILITIES_REPO}@${CAPABILITIES_REF} first."
+          if [ ! -f "${CAP_DIR}/platform/java-service-scaffold-and-ship.md" ]; then
+            echo "::error::Registry is missing platform/java-service-scaffold-and-ship — publish it to ${CAPABILITIES_REPO}@${CAPABILITIES_REF} first."
             find "${CAP_DIR}/github" -type f -name '*.md' | sort | head -50
             exit 1
           fi
@@ -129,7 +134,7 @@ jobs:
           echo "dir:      ${CAP_DIR}"
           echo "files:    ${count}"
           echo "execute:  ${CAP_DIR}/${EXECUTE_CAPABILITY}.md  (exact source path)"
-          echo "source:   https://github.com/${CAPABILITIES_REPO}/blob/${SHA}/capabilities/github/java-service-scaffold-and-ship.md"
+          echo "source:   https://github.com/${CAPABILITIES_REPO}/blob/${SHA}/capabilities/platform/java-service-scaffold-and-ship.md"
 
       - name: Resolve fresh target repository name
         id: target
@@ -253,7 +258,7 @@ jobs:
           set -euo pipefail
           echo "Target: https://github.com/${TARGET_REPO}"
           echo "Workflow file: https://github.com/${TARGET_REPO}/blob/main/.github/workflows/java-ci.yml"
-          echo "Capability used: https://github.com/${CAPABILITIES_REPO}/blob/${{ steps.registry.outputs.sha }}/capabilities/github/java-service-scaffold-and-ship.md"
+          echo "Capability used: https://github.com/${CAPABILITIES_REPO}/blob/${{ steps.registry.outputs.sha }}/capabilities/platform/java-service-scaffold-and-ship.md"
           runtime github run list --repo "${TARGET_REPO}" --limit 5
 
       - name: Audit trail (proof every step went through the runtime)

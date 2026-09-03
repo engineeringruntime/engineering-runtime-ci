@@ -43,6 +43,11 @@ permissions:
 
 env:
   ENGINEERING_RUNTIME_HOME: ${{ github.workspace }}/runtime-home
+  # Governance comes from the two documents at the root of this repository, not
+  # from the binary's compiled defaults. They are the template a reader copies,
+  # and CI proves them on the same commit.
+  RUNTIME_CONFIG_FILE: ${{ github.workspace }}/config.yaml
+  RUNTIME_POLICY_FILE: ${{ github.workspace }}/policy.yaml
   ENGINEERING_RUNTIME_CONSUMER: ci
   RUNTIME_GITHUB_TOKEN: ${{ secrets.RUNTIME_GITHUB_TOKEN }}
   TARGET_REPO: ${{ inputs.target_repo }}

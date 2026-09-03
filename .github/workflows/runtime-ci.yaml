@@ -17,6 +17,11 @@ permissions:
 
 env:
   ENGINEERING_RUNTIME_HOME: ${{ github.workspace }}/runtime-home
+  # Governance comes from the two documents at the root of this repository, not
+  # from the binary's compiled defaults. They are the template a reader copies,
+  # and CI proves them on the same commit.
+  RUNTIME_CONFIG_FILE: ${{ github.workspace }}/config.yaml
+  RUNTIME_POLICY_FILE: ${{ github.workspace }}/policy.yaml
   ENGINEERING_RUNTIME_CONSUMER: ci
   RUNTIME_GITHUB_TOKEN: ${{ secrets.RUNTIME_GITHUB_TOKEN }}
 
@@ -167,6 +172,56 @@ jobs:
           set -euo pipefail
           runtime capability execute "${CAPABILITY_SOURCE_DIR}/github/github-repo-health.md" \
             --input repository=cli/cli > /dev/null
+
+
+      # --- Samples: what a reader can copy -------------------------------
+      #
+      # Two shapes, because they fail differently. A capability exercises the
+      # grammar, input resolution and multi-step execution; a direct command
+      # exercises the provider surface with nothing between it and the engine.
+      # Both run under the config.yaml and policy.yaml at the root of this
+      # repository, so what passes here is what the template permits.
+
+      - name: "Sample: run a capability from the public store"
+        env:
+          RUNTIME_GITHUB_TOKEN: ${{ secrets.RUNTIME_GITHUB_TOKEN }}
+          CAPABILITY_SOURCE_DIR: ${{ steps.capabilities.outputs.directory }}
+        run: |
+          set -euo pipefail
+          runtime capability execute "${CAPABILITY_SOURCE_DIR}/github/repo-topics-review.md" \
+            --input repository=cli/cli
+
+      - name: "Sample: the same work as direct runtime commands"
+        env:
+          RUNTIME_GITHUB_TOKEN: ${{ secrets.RUNTIME_GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          runtime github repo view cli/cli
+          runtime github api GET /repos/cli/cli/topics
+          runtime files write ./sample.txt "written under the template policy"
+          runtime files read ./sample.txt
+          runtime files list .
+
+      - name: "Sample: the template's refusals, demonstrated"
+        run: |
+          set -euo pipefail
+          # policy.yaml denies files delete. A delete that SUCCEEDS means the
+          # template stopped constraining anything.
+          if runtime files delete ./sample.txt > /dev/null 2>&1; then
+            echo "::error::files delete succeeded — policy.yaml no longer denies it"
+            exit 1
+          fi
+          # allowed_binaries lists three. docker is installed on the runner and
+          # is deliberately not one of them.
+          if runtime command run docker --version > /dev/null 2>&1; then
+            echo "::error::docker ran — allowed_binaries is not narrowing anything"
+            exit 1
+          fi
+          echo "both refusals held"
+          rm -f ./sample.txt
+
+      - name: "Sample: which governance was actually in force"
+        run: runtime config validate
 
       - name: Auth logout github
         if: always()

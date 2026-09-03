@@ -7,6 +7,40 @@ capability sources, auth, commands, capability execution, and the audit trail.
 The runtime binary is never built in this repository. Agent guidance lives in
 [`CLAUDE.md`](./CLAUDE.md).
 
+## `config.yaml` and `policy.yaml` — the template
+
+Two tracked documents at the root of this repository. **Every workflow runs
+against them**, not against the binary's compiled defaults:
+
+```yaml
+env:
+  RUNTIME_CONFIG_FILE: ${{ github.workspace }}/config.yaml
+  RUNTIME_POLICY_FILE: ${{ github.workspace }}/policy.yaml
+```
+
+That makes them the one thing a reference document cannot be: **proven**. Whatever
+they permit and refuse, CI demonstrates on the same commit.
+
+They are deliberately *not* a copy of `runtime config init` output. That command
+emits the exhaustive reference with every key the release supports. These are the
+narrower and more useful thing — what a real pipeline sets, with the keys it does
+not need left out rather than commented into silence.
+
+`policy.yaml` is the more interesting of the two. Configuration turns things on;
+policy decides what Runtime refuses, and the refusals are the product. It carries
+`allowed_binaries` narrowed to three, file roots scoped to the workspace with
+read and write as separate grants, an empty `admitted_helpers` map so a reader
+meets the key, and the `files delete` denial — which `runtime-ci.yaml` asserts in
+a real run, so a delete that starts succeeding fails the build.
+
+**Every release updates these files.** When Runtime adds or changes a
+configuration or policy key, it lands here with a comment and a workflow step
+that exercises it. A key nobody can find is a feature nobody has. This is release
+skill step 5c.
+
+Each file carries the Runtime version it was last proven against.
+
+
 ## Role in the release cycle
 
 These workflows are the CI reference for the **current** release. Two things
