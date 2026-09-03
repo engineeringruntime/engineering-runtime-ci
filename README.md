@@ -51,9 +51,12 @@ They do not present an external checkout as Runtime Home or depend on mutable
 name resolution. The SHA in the action output identifies the content used by
 the run.
 
-`RUNTIME_CAPABILITIES_DIR` is not used as an authoritative-source selector in
-these workflows. In Runtime 0.6.0 it relocates the implicit compatibility cache,
-which `runtime capability list` reports as non-authoritative.
+`RUNTIME_CAPABILITIES_DIR` is deliberately left empty in these workflows, so a
+job resolves only the capability it checked out. That is a workflow choice, not a
+limitation of the variable: since Runtime 0.9.2 a directory named there is an
+ordinary authoritative source, reported as `capabilities-dir`, and is where new
+capabilities are authored. Only the unset fallback inside Runtime Home is a
+non-authoritative cache.
 
 ## Setup
 

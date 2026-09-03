@@ -72,10 +72,12 @@ runtime capability execute "${CAPABILITY_SOURCE_DIR}/github/github-repo-health.m
   --input "repository=${REPOSITORY}"
 ```
 
-Do not use `RUNTIME_CAPABILITIES_DIR` to claim an authoritative external
-source. Runtime 0.6.0 treats that environment variable as the location of the
-implicit compatibility cache and reports it as `runtime-home`,
-non-authoritative. A workflow that only needs one checked-out capability
+Leave `RUNTIME_CAPABILITIES_DIR` unset in these workflows, so a job resolves
+only the capability it checked out and its evidence names that exact file. This
+is scoping, not a claim about the variable: since Runtime 0.9.2 a directory named
+there is an authoritative source reported as `capabilities-dir`. Only the unset
+fallback inside Runtime Home is the non-authoritative cache.
+A workflow that only needs one checked-out capability
 should execute the exact path. A workflow testing named authoritative sources
 must instead supply a `capabilities.sources` config document outside Home and
 assert the source name, path, and immutable identity explicitly.
@@ -93,7 +95,7 @@ into `runtime-home/commands/`).
 | `RUNTIME_GITHUB_TOKEN` | Scope only to Auth Engine and GitHub provider steps. |
 | `RUNTIME_CONFIG_FILE` | When used, select an explicit document outside Home. |
 | `RUNTIME_POLICY_FILE` | When used, select an explicit governance document outside Home. |
-| `RUNTIME_CAPABILITIES_DIR` | Compatibility-cache behavior only; do not use as authoritative-source evidence. |
+| `RUNTIME_CAPABILITIES_DIR` | Left unset here to scope a job to its own checkout. Since 0.9.2 a named directory is an authoritative source (`capabilities-dir`); the unset Home fallback is the cache. |
 | `CI` | GitHub Actions provides it; consumer fallback may be tested. |
 | `KUBECONFIG` | Cover when a Kubernetes-auth workflow exists. |
 | `USER` / `USERNAME` | Verify executor identity in audit records where relevant. |
