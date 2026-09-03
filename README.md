@@ -38,6 +38,12 @@ configuration or policy key, it lands here with a comment and a workflow step
 that exercises it. A key nobody can find is a feature nobody has. This is release
 skill step 5c.
 
+**One step deliberately does not use them.** Store validation asks *"is every
+published capability valid for this release?"* — a question about the binary's
+defaults, not about what this pipeline may do. It runs against the compiled
+defaults for that reason. Everything else asks *"what may this pipeline do?"* and
+uses the template.
+
 Each file carries the Runtime version it was last proven against.
 
 

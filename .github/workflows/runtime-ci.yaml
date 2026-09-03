@@ -50,8 +50,22 @@ jobs:
         uses: ./.github/actions/setup-capabilities
 
       - name: Validate every capability in the external store
+        # Deliberately runs against the COMPILED DEFAULTS, not this repository's
+        # policy.yaml. The two steps ask different questions:
+        #
+        #   store validation — "is every published capability valid for this
+        #                       release?"  → the release's own defaults
+        #   every other step — "what may this pipeline do?"  → policy.yaml
+        #
+        # Using the narrowed template here failed the whole job on
+        # gcp-image-build-and-push, which needs `docker` — a binary this pipeline
+        # deliberately omits. That is a correct refusal answering the wrong
+        # question: the capability is valid for the release and simply not
+        # something this pipeline may run.
         env:
           CAPABILITY_SOURCE_DIR: ${{ steps.capabilities.outputs.directory }}
+          RUNTIME_POLICY_FILE: ""
+          RUNTIME_CONFIG_FILE: ""
         run: |
           set -euo pipefail
           shopt -s nullglob globstar
