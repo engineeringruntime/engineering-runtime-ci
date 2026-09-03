@@ -82,6 +82,79 @@ jobs:
           runtime github org list
           runtime github notification list
 
+      # ---------------------------------------------------------------------
+      # Transport and engine conformance.
+      #
+      # One real operation per transport, because two dead paths shipped in
+      # v0.8.0 and every existing gate stayed green: `go build`, `go vet`,
+      # `go test ./...`, a strict docs build, capability validation across the
+      # whole store, and the install proof above. Validation parses; it does not
+      # execute, and neither did anything else here touch the CLI transport.
+      #
+      # Each step names its transport so a failure is a bug report rather than
+      # an exit code.
+      # ---------------------------------------------------------------------
+
+      - name: "Conformance: github REST transport"
+        env:
+          RUNTIME_GITHUB_TOKEN: ${{ secrets.RUNTIME_GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          runtime github repo view cli/cli > /dev/null
+          runtime github api GET /repos/cli/cli > /dev/null
+
+      - name: "Conformance: github GraphQL transport"
+        env:
+          RUNTIME_GITHUB_TOKEN: ${{ secrets.RUNTIME_GITHUB_TOKEN }}
+        run: runtime github repo summary cli/cli > /dev/null
+
+      - name: "Conformance: github CLI transport (gh)"
+        env:
+          RUNTIME_GITHUB_TOKEN: ${{ secrets.RUNTIME_GITHUB_TOKEN }}
+        # This is the row that fails against v0.8.0. The provider CLI transport
+        # built an engine request with no pinned artifact, so every gh-backed
+        # operation refused and 16 shipped capabilities were dead.
+        run: |
+          set -euo pipefail
+          runtime github run list --repo cli/cli --limit 1 > /dev/null
+          runtime github pr list --repo cli/cli --limit 1 > /dev/null
+          runtime github workflow list --repo cli/cli > /dev/null
+
+      - name: "Conformance: File Engine"
+        run: |
+          set -euo pipefail
+          runtime files write ./conformance.txt "file engine" > /dev/null
+          runtime files read ./conformance.txt | grep -qF "file engine"
+          runtime files delete ./conformance.txt > /dev/null
+
+      - name: "Conformance: Command Engine, plain binary"
+        run: runtime command run git --version > /dev/null
+
+      - name: "Conformance: safety floor still refuses a gcloud change"
+        # A NEGATIVE row: it fails if the operation succeeds. A floor that
+        # quietly stops refusing is worse than a transport that stops working,
+        # and nothing else in this workflow would notice.
+        run: |
+          set -euo pipefail
+          if runtime command run gcloud run deploy conformance-probe \
+               --image=invalid --region=invalid-region-xyz > /dev/null 2>&1; then
+            echo "SAFETY FLOOR REGRESSION: a gcloud change was permitted" >&2
+            exit 1
+          fi
+          echo "refused, as required"
+
+      - name: "Conformance: the same operations inside a capability"
+        env:
+          RUNTIME_GITHUB_TOKEN: ${{ secrets.RUNTIME_GITHUB_TOKEN }}
+        # Direct invocation and a capability step do not bind identically — a
+        # `binary:` step is refused until that provider's authentication is
+        # enabled, while `command run` is governed by command policy instead.
+        # Testing one path would miss what breaks in the other.
+        run: |
+          set -euo pipefail
+          runtime capability execute "${CAPABILITY_SOURCE_DIR}/github/github-repo-health.md" \
+            --input repository=cli/cli > /dev/null
+
       - name: Auth logout github
         if: always()
         env:
