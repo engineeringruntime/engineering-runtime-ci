@@ -29,8 +29,10 @@ Where that map and this file differ about this repository, this file wins.
 All workflows use a disposable, gitignored Home:
 
 ```yaml
-ENGINEERING_RUNTIME_HOME: ${{ github.workspace }}/runtime-home
-ENGINEERING_RUNTIME_CONSUMER: ci
+RUNTIME_HOME: ${{ github.workspace }}/runtime-home
+RUNTIME_CONSUMER: ci
+RUNTIME_ACTOR_NAME: github-actions/${{ github.workflow }}
+RUNTIME_SESSION_ID: ${{ github.run_id }}-${{ github.run_attempt }}
 ```
 
 After `runtime bootstrap`, assert:
@@ -90,8 +92,10 @@ into `runtime-home/commands/`).
 
 | Variable | CI responsibility |
 |---|---|
-| `ENGINEERING_RUNTIME_HOME` | Prove Home is relocatable and isolated. |
-| `ENGINEERING_RUNTIME_CONSUMER` | Set to `ci`; verify it appears in audit evidence. |
+| `RUNTIME_HOME` | Prove Home is relocatable and isolated. |
+| `RUNTIME_CONSUMER` | Set to `ci`; verify it appears in audit evidence. |
+| `RUNTIME_ACTOR_NAME` | Name the workflow as a self-asserted searchable actor. |
+| `RUNTIME_SESSION_ID` | Correlate every record to one run ID and attempt. |
 | `RUNTIME_GITHUB_TOKEN` | Scope only to Auth Engine and GitHub provider steps. |
 | `RUNTIME_CONFIG_FILE` | When used, select an explicit document outside Home. |
 | `RUNTIME_POLICY_FILE` | When used, select an explicit governance document outside Home. |

@@ -21,13 +21,15 @@ permissions:
   contents: read
 
 env:
-  ENGINEERING_RUNTIME_HOME: ${{ github.workspace }}/runtime-home
+  RUNTIME_HOME: ${{ github.workspace }}/runtime-home
   # Governance comes from the two documents at the root of this repository, not
   # from the binary's compiled defaults. They are the template a reader copies,
   # and CI proves them on the same commit.
   RUNTIME_CONFIG_FILE: ${{ github.workspace }}/config.yaml
   RUNTIME_POLICY_FILE: ${{ github.workspace }}/policy.yaml
-  ENGINEERING_RUNTIME_CONSUMER: ci
+  RUNTIME_CONSUMER: ci
+  RUNTIME_ACTOR_NAME: "github-actions/${{ github.workflow }}"
+  RUNTIME_SESSION_ID: "${{ github.run_id }}-${{ github.run_attempt }}"
   RUNTIME_GITHUB_TOKEN: ${{ secrets.RUNTIME_GITHUB_TOKEN }}
 
 jobs:
