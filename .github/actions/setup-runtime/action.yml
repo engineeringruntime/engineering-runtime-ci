@@ -67,13 +67,13 @@ runs:
       run: |
         set -euo pipefail
         for path in config.yaml policy-config.yaml context.yaml; do
-          if [ -e "${ENGINEERING_RUNTIME_HOME}/${path}" ]; then
-            echo "::error::runtime bootstrap created user-owned ${ENGINEERING_RUNTIME_HOME}/${path}" >&2
+          if [ -e "${RUNTIME_HOME}/${path}" ]; then
+            echo "::error::runtime bootstrap created user-owned ${RUNTIME_HOME}/${path}" >&2
             exit 1
           fi
         done
-        test -d "${ENGINEERING_RUNTIME_HOME}/capabilities"
-        if find "${ENGINEERING_RUNTIME_HOME}/capabilities" -mindepth 1 -print -quit | grep -q .; then
+        test -d "${RUNTIME_HOME}/capabilities"
+        if find "${RUNTIME_HOME}/capabilities" -mindepth 1 -print -quit | grep -q .; then
           echo "::error::runtime bootstrap populated the non-authoritative capability cache" >&2
           exit 1
         fi

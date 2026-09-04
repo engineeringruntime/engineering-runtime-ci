@@ -81,8 +81,10 @@ The shared [`setup-runtime`](.github/actions/setup-runtime/action.yml) action:
 Every workflow sets only the common runtime environment it needs:
 
 ```yaml
-ENGINEERING_RUNTIME_HOME: ${{ github.workspace }}/runtime-home
-ENGINEERING_RUNTIME_CONSUMER: ci
+RUNTIME_HOME: ${{ github.workspace }}/runtime-home
+RUNTIME_CONSUMER: ci
+RUNTIME_ACTOR_NAME: github-actions/${{ github.workflow }}
+RUNTIME_SESSION_ID: ${{ github.run_id }}-${{ github.run_attempt }}
 ```
 
 On a fresh bootstrap:
@@ -149,8 +151,10 @@ Destructive packs remain dispatch-only or local.
 Use an isolated Home and an exact capability file from a reviewed checkout:
 
 ```bash
-export ENGINEERING_RUNTIME_HOME="$(mktemp -d)/runtime-home"
-export ENGINEERING_RUNTIME_CONSUMER=ci
+export RUNTIME_HOME="$(mktemp -d)/runtime-home"
+export RUNTIME_CONSUMER=ci
+export RUNTIME_ACTOR_NAME=local-ci-verification
+export RUNTIME_SESSION_ID="local-$(date +%s)"
 
 runtime bootstrap
 runtime config validate

@@ -34,13 +34,15 @@ permissions:
   contents: read
 
 env:
-  ENGINEERING_RUNTIME_HOME: ${{ github.workspace }}/runtime-home
+  RUNTIME_HOME: ${{ github.workspace }}/runtime-home
   # Governance comes from the two documents at the root of this repository, not
   # from the binary's compiled defaults. They are the template a reader copies,
   # and CI proves them on the same commit.
   RUNTIME_CONFIG_FILE: ${{ github.workspace }}/config.yaml
   RUNTIME_POLICY_FILE: ${{ github.workspace }}/policy.yaml
-  ENGINEERING_RUNTIME_CONSUMER: ci
+  RUNTIME_CONSUMER: ci
+  RUNTIME_ACTOR_NAME: "github-actions/${{ github.workflow }}"
+  RUNTIME_SESSION_ID: "${{ github.run_id }}-${{ github.run_attempt }}"
   RUNTIME_GITHUB_TOKEN: ${{ secrets.RUNTIME_GITHUB_TOKEN }}
   CAPABILITIES_REPO: ${{ inputs.capabilities_repo || 'engineeringruntime/engineering-runtime-capabilities' }}
   CAPABILITIES_REF: ${{ inputs.capabilities_ref || 'main' }}
@@ -96,16 +98,16 @@ jobs:
       - name: Show Runtime Home vs capability store
         run: |
           set -euo pipefail
-          echo "ENGINEERING_RUNTIME_HOME=${ENGINEERING_RUNTIME_HOME}  (no user-owned config, policy, or context; empty capability cache)"
-          test ! -e "${ENGINEERING_RUNTIME_HOME}/config.yaml"
-          test ! -e "${ENGINEERING_RUNTIME_HOME}/policy-config.yaml"
-          test ! -e "${ENGINEERING_RUNTIME_HOME}/context.yaml"
-          test -d "${ENGINEERING_RUNTIME_HOME}/capabilities"
-          test -z "$(find "${ENGINEERING_RUNTIME_HOME}/capabilities" -mindepth 1 -print -quit)"
+          echo "RUNTIME_HOME=${RUNTIME_HOME}  (no user-owned config, policy, or context; empty capability cache)"
+          test ! -e "${RUNTIME_HOME}/config.yaml"
+          test ! -e "${RUNTIME_HOME}/policy-config.yaml"
+          test ! -e "${RUNTIME_HOME}/context.yaml"
+          test -d "${RUNTIME_HOME}/capabilities"
+          test -z "$(find "${RUNTIME_HOME}/capabilities" -mindepth 1 -print -quit)"
           echo "CAPABILITY_SOURCE_DIR=${CAPABILITY_SOURCE_DIR}  (checked-out source — NOT Home)"
           echo "CAPABILITY_SOURCE_REVISION=${{ steps.caps.outputs.revision }}"
           echo "--- runtime-home ---"
-          ls -la "${ENGINEERING_RUNTIME_HOME}"
+          ls -la "${RUNTIME_HOME}"
           echo "--- capabilities store (top) ---"
           ls -la "${CAPABILITY_SOURCE_DIR}"
 
