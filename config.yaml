@@ -1,6 +1,6 @@
 # Engineering Runtime — configuration for this CI pipeline
 #
-# Proven against Runtime 0.9.2 by the workflows in this repository, on this
+# Proven against Runtime 0.9.7 by the workflows in this repository, on this
 # commit. Copy it, delete what you do not need, and keep the comments.
 #
 # This is NOT the exhaustive reference — `runtime config init config --output
@@ -12,6 +12,17 @@
 # variable Runtime uses its compiled defaults and never looks here.
 
 schema_version: 2
+
+# This pipeline intentionally remains Community/local. A company enables this
+# block only when enrolling the installation into its Enterprise Control Plane;
+# the show-once RUNTIME_PORTAL_API_KEY stays in the job's secret store, never in
+# this file. Disabled portal sync is verified below to perform no network or
+# audit work.
+portal:
+  enabled: false
+  base_url: ""
+  path_prefix: /api/v1
+  timeout_seconds: 5
 
 # Which provider authentication Runtime may resolve.
 #
