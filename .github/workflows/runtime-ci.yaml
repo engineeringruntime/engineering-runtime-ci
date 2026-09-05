@@ -58,6 +58,11 @@ jobs:
         run: |
           set -euo pipefail
           runtime portal status | grep -F "Portal: disabled (Community / local mode)"
+          runtime_version="$(runtime version | sed -n 's/^runtime //p')"
+          if [ "$(printf '%s\n' 0.9.7 "$runtime_version" | sort -V | head -1)" != 0.9.7 ]; then
+            echo "Runtime $runtime_version predates the 0.9.7 offline-sync contract; post-release dispatch will exercise it"
+            exit 0
+          fi
           runtime portal sync | grep -F "no network call or governance change was made"
           test ! -e "${RUNTIME_HOME}/logs/execution-evidence.jsonl"
 
