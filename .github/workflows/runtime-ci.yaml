@@ -54,6 +54,13 @@ jobs:
           test -z "$(find "${RUNTIME_HOME}/capabilities" -mindepth 1 -print -quit)"
           runtime capability list | grep -F "No capabilities resolved."
 
+      - name: Verify Community portal sync stays offline and evidence-free
+        run: |
+          set -euo pipefail
+          runtime portal status | grep -F "Portal: disabled (Community / local mode)"
+          runtime portal sync | grep -F "no network call or governance change was made"
+          test ! -e "${RUNTIME_HOME}/logs/execution-evidence.jsonl"
+
       - name: Setup public capability store
         id: capabilities
         uses: ./.github/actions/setup-capabilities
